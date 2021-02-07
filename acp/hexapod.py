@@ -17,14 +17,18 @@
 import math
 import datetime
 
-class Servo:
+class DummyServo:
   def __init__(self):
-    pass
+    self.value = 0
 
-  def write(value: int):
+  def write(self, value: int):
     print(f"servo write {value}")
+    self.value = value
 
-class Controller:
+  def read(self):
+    return self.value
+
+class DummyController:
   def __init__(self):
     pass
 
@@ -117,26 +121,26 @@ class Hexapod:
     self.tetrapod_case = [1,3,2,1,2,3]     #for tetrapod gait
 
     # Object Declarations
-    self.controller = Controller()              #PS2 gamepad controller
+    self.controller = DummyController()    # gamepad controller
 
-    self.coxa1_servo = Servo()     #18 servos = Servo()
-    self.femur1_servo = Servo()
-    self.tibia1_servo = Servo()
-    self.coxa2_servo = Servo()
-    self.femur2_servo = Servo()
-    self.tibia2_servo = Servo()
-    self.coxa3_servo = Servo()
-    self.femur3_servo = Servo()
-    self.tibia3_servo = Servo()
-    self.coxa4_servo = Servo()
-    self.femur4_servo = Servo()
-    self.tibia4_servo = Servo()
-    self.coxa5_servo = Servo()
-    self.femur5_servo = Servo()
-    self.tibia5_servo = Servo()
-    self.coxa6_servo = Servo()
-    self.femur6_servo = Servo()
-    self.tibia6_servo = Servo()
+    self.coxa1_servo  = DummyServo()        #18 servos = Servo()
+    self.femur1_servo = DummyServo()
+    self.tibia1_servo = DummyServo()
+    self.coxa2_servo  = DummyServo()
+    self.femur2_servo = DummyServo()
+    self.tibia2_servo = DummyServo()
+    self.coxa3_servo  = DummyServo()
+    self.femur3_servo = DummyServo()
+    self.tibia3_servo = DummyServo()
+    self.coxa4_servo  = DummyServo()
+    self.femur4_servo = DummyServo()
+    self.tibia4_servo = DummyServo()
+    self.coxa5_servo  = DummyServo()
+    self.femur5_servo = DummyServo()
+    self.tibia5_servo = DummyServo()
+    self.coxa6_servo  = DummyServo()
+    self.femur6_servo = DummyServo()
+    self.tibia6_servo = DummyServo()
 
     self.mode = 0
     self.gait = 0
@@ -148,21 +152,22 @@ class Hexapod:
 
     # CONTROLLER BUTTONS
     # TODO REMOVE IT
-    PSB_PAD_DOWN =  1
-    PSB_PAD_LEFT =  2
-    PSB_PAD_UP =    3
-    PSB_PAD_RIGHT = 4
-    PSB_TRIANGLE =  5
-    PSB_SQUARE =    6
-    PSB_CIRCLE =    7
-    PSB_CROSS =     8
-    PSB_START =     9
+    self.PSB_PAD_DOWN =  1
+    self.PSB_PAD_LEFT =  2
+    self.PSB_PAD_UP =    3
+    self.PSB_PAD_RIGHT = 4
+    self.PSB_TRIANGLE =  5
+    self.PSB_SQUARE =    6
+    self.PSB_CIRCLE =    7
+    self.PSB_CROSS =     8
+    self.PSB_START =     9
     self.PSB_L1  =       10
     self.PSB_R1  =       11
     self.PSS_RX =        12
     self.PSS_RY =        13
     self.PSS_LX =        14
     self.PSS_LY =        15
+    self.gamepad_vibrate = 0
 
   #***********************************************************************
   # Main Program
@@ -179,7 +184,7 @@ class Hexapod:
       self.previousTime = self.currentTime
 
       #read controller and process inputs
-      self.controller.read_gamepad(False, gamepad_vibrate)      
+      self.controller.read_gamepad(False, self.gamepad_vibrate)      
       self.process_gamepad()
 
       #reset legs to home position when commanded
@@ -260,9 +265,9 @@ class Hexapod:
       self.mode = 1
       self.reset_position = True
     if self.controller.Button(PSB_TRIANGLE):           #vibrate controller if walk button held
-      gamepad_vibrate = 64 
+      self.gamepad_vibrate = 64 
     else:
-      gamepad_vibrate = 0
+      self.gamepad_vibrate = 0
     if self.controller.ButtonPressed(PSB_SQUARE):      #control x-y-z with joysticks mode
       self.mode = 2
       self.reset_position = True
