@@ -5,13 +5,15 @@ import adafruit_pca9685
 from adafruit_servokit import ServoKit
 from acp.hexapod import Hexapod
 from acp.servo import Servo
-from acp.controller import Controller
+from acp.controller import XboxOneController
 
 class AcpRobot(Hexapod):
 
     PCA_FREQ = 50 # Servo control freq
 
     def __init__(self):
+        super().__init__()
+        self.controller = XboxOneController()
         self.i2c = busio.I2C(board.SCL, board.SDA)
         # self.pca1 = adafruit_pca9685.PCA9685(i2c, address=0x40)
         # self.pca2 = adafruit_pca9685.PCA9685(i2c, address=0x40) # TODO change address

@@ -13,7 +13,7 @@
 #  https:#www.robotshop.com/community/forum/t/inverse-kinematic-equations-for-lynxmotion-3dof-legs/21336
 #  http:#arduin0.blogspot.com/2012/01/inverse-kinematics-ik-implementation.html?utm_source=rb-community&utm_medium=forum&utm_campaign=inverse-kinematic-equations-for-lynxmotion-3dof-legs
 #***********************************************************************
-
+import logging
 import math
 import datetime
 
@@ -35,8 +35,13 @@ class DummyController:
   def analog(self, id):
     return 1
 
-  def ButtonPressed(self, button: int):
-    print(f"button {button} pressed")
+  def button_pressed(self, button: int):
+    logging.debug("button_pressed %s", button)
+    return False
+
+  def button(self, button: int) -> bool:
+    logging.debug("button %s", button)
+    return False
 
   def read_gamepad(self, vibrate: int):
     pass
@@ -97,10 +102,34 @@ class Hexapod:
   FEMUR_CAL = [4, -2,  0, -1,  0,  0]
   TIBIA_CAL = [0, -3, -3, -2, -3, -1]
 
+  BUT_A = 'a'
+  BUT_B = 'b'
+  BUT_X = 'x'
+  BUT_Y = 'y'
+  BUT_SELECT = 'select'
+  BUT_START = 'start'
+  BUT_THUMBL = 'thumbl'
+  BUT_THUMBL = 'thumbr'
+  BUT_TL = 'tl'
+  BUT_TR = 'tr'
+  
+  PAD_UP = 'pad_up'
+  PAD_DOWN = 'pad_down'
+  PAD_LEFT = 'pad_left'
+  PAD_RIGHT = 'pad_right'
+
   def map(self, x: float, in_min: float, in_max: float, out_min: float, out_max: float):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
-
+  def constrain(self, x: float, a: float, b: float) -> float:
+    assert a <= b
+    if x < a:
+      return a
+    elif x > b:
+      return b
+    else:
+      return x
+ 
   #***********************************************************************
   # Initialization Routine
   #***********************************************************************
@@ -152,42 +181,21 @@ class Hexapod:
     self.leg1_IK_control = True
     self.leg6_IK_control = True
 
-
-    # CONTROLLER BUTTONS
-    # TODO REMOVE IT
-    self.PSB_PAD_DOWN =  1
-    self.PSB_PAD_LEFT =  2
-    self.PSB_PAD_UP =    3
-    self.PSB_PAD_RIGHT = 4
-    self.PSB_TRIANGLE =  5
-    self.PSB_SQUARE =    6
-    self.PSB_CIRCLE =    7
-    self.PSB_CROSS =     8
-    self.PSB_START =     9
-    self.PSB_L1  =       10
-    self.PSB_R1  =       11
-    self.PSS_RX =        12
-    self.PSS_RY =        13
-    self.PSS_LX =        14
-    self.PSS_LY =        15
     self.gamepad_vibrate = 0
+    self.tick = 0
 
   #***********************************************************************
   # Main Program
   #***********************************************************************
   def loop(self):
-    #exit if no controller found or GuitarHero controller
-    if self.gamepad_error == 1 or self.gamepad_type == 2:
-      print("Invalid Controller!")
-      return
 
     #set up frame time
     self.currentTime = datetime.datetime.now()
-    if self.currentTime - self.previousTime > self.FRAME_TIME_MS:
+    if (self.currentTime - self.previousTime).microseconds / 1000 > self.FRAME_TIME_MS:
       self.previousTime = self.currentTime
 
       #read controller and process inputs
-      self.controller.read_gamepad(False, self.gamepad_vibrate)      
+      self.controller.read_gamepad(self.gamepad_vibrate) # TODO vibrate not implemented     
       self.process_gamepad()
 
       #reset legs to home position when commanded
@@ -204,7 +212,7 @@ class Hexapod:
           self.leg_IK(leg_num,self.current_X[leg_num]+self.offset_X[leg_num],self.current_Y[leg_num]+self.offset_Y[leg_num],self.current_Z[leg_num]+self.offset_Z[leg_num])       
 
       #reset leg lift first pass flags if needed
-      if mode != 4:
+      if self.mode != 4:
         self.leg1_IK_control = True 
         self.leg6_IK_control = True
 
@@ -212,19 +220,19 @@ class Hexapod:
       self.print_debug()                            #print debug data
 
       #process modes (mode 0 is default 'home idle' do-nothing mode)
-      if mode == 1:                             #walking mode
-        if self.giat == 0:
+      if self.mode == 1:                             #walking mode
+        if self.gait == 0:
           self.tripod_gait()
-        elif self.giat == 1:
-          self.wave_giat()
-        elif self.giat == 2:
+        elif self.gait == 1:
+          self.wave_gait()
+        elif self.gait == 2:
           self.ripple_gait()
-        elif self.giat == 3:
+        elif self.gait == 3:
           self.tetrapod_gait()
       elif self.mode == 2:
         self.translate_control()
       elif self.mode == 3:
-        self.roate_control()
+        self.rotate_control()
       elif self.mode == 4:
         self.one_leg_lift()
       elif self.mode == 99:
@@ -235,67 +243,67 @@ class Hexapod:
   # Process gamepad controller inputs
   #***********************************************************************
   def process_gamepad(self):
-    if self.controller.ButtonPressed(self.PSB_PAD_DOWN):    #stop & select gait 0
+    if self.controller.button_pressed(self.PAD_DOWN):    #stop & select gait 0
       self.mode = 0
       self.gait = 0
       self.reset_position = True
-    if self.controller.ButtonPressed(self.PSB_PAD_LEFT):    #stop & select gait 1 
+    if self.controller.button_pressed(self.PAD_LEFT):    #stop & select gait 1 
       self.mode = 0
       self.gait = 1
       self.reset_position = True
-    if self.controller.ButtonPressed(self.PSB_PAD_UP):      #stop & select gait 2  
+    if self.controller.button_pressed(self.PAD_UP):      #stop & select gait 2  
       self.mode = 0
       self.gait = 2
       self.reset_position = True
-    if self.controller.ButtonPressed(self.PSB_PAD_RIGHT):   #stop & select gait 3
+    if self.controller.button_pressed(self.PAD_RIGHT):   #stop & select gait 3
       self.mode = 0
       self.gait = 3
       self.reset_position = True
     if self.mode == 0:                           #display selected gait on LEDs if button held
-      if batt_LEDs > 3:
+      if self.batt_LEDs > 3:
         self.gait_LED_color=0   #display gait using red LEDs if battery strong
       else:
         self.gait_LED_color=1                #display gait using green LEDs if battery weak
-      if self.controller.Button(self.PSB_PAD_DOWN):
+      if self.controller.button(self.PAD_DOWN):
         self.LED_Bar(self.gait_LED_color, 1)    #display gait 0 
-      if self.controller.Button(self.PSB_PAD_LEFT):
+      if self.controller.button(self.PAD_LEFT):
         self.LED_Bar(self.gait_LED_color, 2)    #display gait 1 
-      if self.controller.Button(self.PSB_PAD_UP):
+      if self.controller.button(self.PAD_UP):
         self.LED_Bar(self.gait_LED_color, 3)    #display gait 2
-      if self.controller.Button(self.PSB_PAD_RIGHT):
+      if self.controller.button(self.PAD_RIGHT):
         self.LED_Bar(self.gait_LED_color, 4)    #display gait 3 
-    if self.controller.ButtonPressed(self.PSB_TRIANGLE):    #select walk mode
+    if self.controller.button_pressed(self.BUT_Y):    #select walk mode
       self.mode = 1
       self.reset_position = True
-    if self.controller.Button(PSB_TRIANGLE):           #vibrate controller if walk button held
+    if self.controller.button(self.BUT_Y):           #vibrate controller if walk button held
       self.gamepad_vibrate = 64 
     else:
       self.gamepad_vibrate = 0
-    if self.controller.ButtonPressed(PSB_SQUARE):      #control x-y-z with joysticks mode
+    if self.controller.button_pressed(self.BUT_X):      #control x-y-z with joysticks mode
       self.mode = 2
       self.reset_position = True
-    if self.controller.ButtonPressed(PSB_CIRCLE):      #control y-p-r with joysticks mode
+    if self.controller.button_pressed(self.BUT_B):      #control y-p-r with joysticks mode
       self.mode = 3
       self.reset_position = True
-    if self.controller.ButtonPressed(PSB_CROSS):       #one leg lift mode
+    if self.controller.button_pressed(self.BUT_A):       #one leg lift mode
       self.mode = 4
       self.reset_position = True
-    if self.controller.ButtonPressed(PSB_START):       #change self.gait speed
+    if self.controller.button_pressed(self.BUT_START):       #change self.gait speed
       if self.gait_speed == 0:
         self.gait_speed = 1
       else:
         self.gait_speed = 0
-    if self.controller.Button(PSB_START):              #display gait speed on LEDs if button held
+    if self.controller.button(self.BUT_START):              #display gait speed on LEDs if button held
       if self.gait_speed == 0:
         self.LED_Bar(1,8)     #use green LEDs for fast
       else:
         self.LED_Bar(0,8)                    #use red LEDs for slow
-    if self.controller.ButtonPressed(PSB_SELECT):      #set all servos to 90 degrees for calibration
+    if self.controller.button_pressed(self.BUT_SELECT):      #set all servos to 90 degrees for calibration
       self.mode = 99   
-    if self.controller.ButtonPressed(self.PSB_L1) or self.controller.ButtonPressed(self.PSB_R1):
+    if self.controller.button_pressed(self.BUT_TL) or self.controller.button_pressed(self.BUT_TR):
       #capture offsets in translate, rotate, and translate/rotate modes
       self.capture_offsets = True
-    if self.controller.ButtonPressed(PSB_L2) or self.controller.ButtonPressed(PSB_R2):
+    if self.controller.button_pressed(self.PSB_L2) or self.controller.button_pressed(self.PSB_R2):   # TODO ANALOG to BIN
       for leg_num in range(0,6):  #clear offsets
         self.offset_X[leg_num] = 0
         self.offset_Y[leg_num] = 0
@@ -308,9 +316,9 @@ class Hexapod:
   #***********************************************************************
   # Leg IK Routine
   #***********************************************************************
-  def leg_IK(self, leg_number: int, X: float, Y: float, Z: float):
+  def leg_IK(self, leg_num: int, X: float, Y: float, Z: float):
     #compute target femur-to-toe (L3) length
-    L0 = math.sqrt(pow(X,2) + pow(Y,2)) - COXA_LENGTH
+    L0 = math.sqrt(pow(X,2) + pow(Y,2)) - self.COXA_LENGTH
     L3 = math.sqrt(pow(L0,2) + pow(Z,2))
     
 
@@ -318,37 +326,37 @@ class Hexapod:
     if L3 < self.TIBIA_LENGTH+self.FEMUR_LENGTH and L3 > self.TIBIA_LENGTH-self.FEMUR_LENGTH:  
       #compute tibia angle
       phi_tibia = math.acos((pow(self.FEMUR_LENGTH,2) + pow(self.TIBIA_LENGTH) - pow(L3,2))/(2*self.FEMUR_LENGTH*self.TIBIA_LENGTH))
-      theta_tibia = phi_tibia*self.RAD_TO_DEG - 23.0 + self.TIBIA_CAL[leg_number]
+      theta_tibia = phi_tibia*self.RAD_TO_DEG - 23.0 + self.TIBIA_CAL[leg_num]
       theta_tibia = self.constrain(theta_tibia,0.0,180.0)
     
       #compute femur angle
       gamma_femur = math.atan2(Z,L0)
       phi_femur = math.acos((pow(self.FEMUR_LENGTH,2) + pow(L3,2) - pow(self.TIBIA_LENGTH,2))/(2*self.FEMUR_LENGTH*L3))
-      theta_femur = (phi_femur + gamma_femur)*self.RAD_TO_DEG + 14.0 + 90.0 + FEMUR_CAL[leg_number]
+      theta_femur = (phi_femur + gamma_femur)*self.RAD_TO_DEG + 14.0 + 90.0 + self.FEMUR_CAL[leg_num]
       theta_femur = self.constrain(theta_femur,0.0,180.0)  
 
       #compute coxa angle
-      theta_coxa = math.atan2(X,Y)*self.RAD_TO_DEG + COXA_CAL[leg_number]
+      theta_coxa = math.atan2(X,Y)*self.RAD_TO_DEG + self.COXA_CAL[leg_num]
 
       #output to the appropriate leg
       if leg_num == 0:
         if self.leg1_IK_control == True:                       #flag for IK or manual control of leg
           theta_coxa = theta_coxa + 45.0                 #compensate for leg mounting
-          theta_coxa = constrain(theta_coxa,0.0,180.0)
+          theta_coxa = self.constrain(theta_coxa,0.0,180.0)
           self.coxa1_servo.write(int(theta_coxa)) 
           self.femur1_servo.write(int(theta_femur)) 
           self.tibia1_servo.write(int(theta_tibia)) 
         
       elif leg_num == 1:
         theta_coxa = theta_coxa + 90.0                 #compensate for leg mounting
-        theta_coxa = constrain(theta_coxa,0.0,180.0)
+        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
         self.coxa2_servo.write(int(theta_coxa)) 
         self.femur2_servo.write(int(theta_femur)) 
         self.tibia2_servo.write(int(theta_tibia)) 
         
       elif leg_num == 2:
         theta_coxa = theta_coxa + 135.0                 #compensate for leg mounting
-        theta_coxa = constrain(theta_coxa,0.0,180.0)
+        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
         self.coxa3_servo.write(int(theta_coxa)) 
         self.femur3_servo.write(int(theta_femur)) 
         self.tibia3_servo.write(int(theta_tibia)) 
@@ -358,7 +366,7 @@ class Hexapod:
           theta_coxa = theta_coxa + 225.0                # (need to use different
         else:                                              #  positive and negative offsets 
           theta_coxa = theta_coxa - 135.0                #  due to atan2 results above!)
-        theta_coxa = constrain(theta_coxa,0.0,180.0)
+        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
         self.coxa4_servo.write(int(theta_coxa)) 
         self.femur4_servo.write(int(theta_femur)) 
         self.tibia4_servo.write(int(theta_tibia)) 
@@ -368,7 +376,7 @@ class Hexapod:
           theta_coxa = theta_coxa + 270.0                # (need to use different
         else:                                              #  positive and negative offsets 
           theta_coxa = theta_coxa - 90.0                 #  due to atan2 results above!)
-        theta_coxa = constrain(theta_coxa,0.0,180.0)
+        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
         self.coxa5_servo.write(int(theta_coxa)) 
         self.femur5_servo.write(int(theta_femur)) 
         self.tibia5_servo.write(int(theta_tibia)) 
@@ -379,7 +387,7 @@ class Hexapod:
             theta_coxa = theta_coxa + 315.0              # (need to use different
           else:                                            #  positive and negative offsets 
             theta_coxa = theta_coxa - 45.0               #  due to atan2 results above!)
-          theta_coxa = constrain(theta_coxa,0.0,180.0)
+          theta_coxa = self.constrain(theta_coxa,0.0,180.0)
           self.coxa6_servo.write(int(theta_coxa)) 
           self.femur6_servo.write(int(theta_femur)) 
           self.tibia6_servo.write(int(theta_tibia)) 
@@ -396,28 +404,28 @@ class Hexapod:
     commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
       
     #if commands more than deadband then process
-    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or tick>0:
-      self.compute_strides()
+    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
+      self.compute_strides(commandedX, commandedY, commandedR)
       numTicks = round(self.duration / self.FRAME_TIME_MS / 2.0) #total ticks divided into the two cases
       for leg_num in range(0,6):
-        self.compute_amplitudes()
+        self.compute_amplitudes(leg_num)
         if self.tripod_case[leg_num] == 1:                               #move foot forward (raise and lower)
-          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*tick/numTicks)
-          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*tick/numTicks)
-          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*tick/numTicks)
-          if tick >= numTicks-1:
-            tripod_case[leg_num] = 2
+          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*self.tick/numTicks)
+          if self.tick >= numTicks-1:
+            self.tripod_case[leg_num] = 2
         elif self.tripod_case[leg_num] == 2:                               #move foot back (on the ground)
-          self.current_X[leg_num] = self.HOME_X[leg_num] + self.amplitudeX*math.cos(self.M_PI*tick/numTicks)
-          self.current_Y[leg_num] = self.HOME_Y[leg_num] + self.amplitudeY*math.cos(self.M_PI*tick/numTicks)
+          self.current_X[leg_num] = self.HOME_X[leg_num] + self.amplitudeX*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Y[leg_num] = self.HOME_Y[leg_num] + self.amplitudeY*math.cos(self.M_PI*self.tick/numTicks)
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
-            tripod_case[leg_num] = 1
+          if self.tick >= numTicks-1:
+            self.tripod_case[leg_num] = 1
       #increment tick
-      if tick < numTicks-1:
-        tick+=1
+      if self.tick < numTicks-1:
+        self.tick+=1
       else: 
-        tick = 0
+        self.tick = 0
 
 
   #***********************************************************************
@@ -431,52 +439,52 @@ class Hexapod:
     commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
 
     #if commands more than deadband then process
-    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or tick>0:
-      self.compute_strides()
+    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
+      self.compute_strides(commandedX, commandedY, commandedR)
       numTicks = round(self.duration / self.FRAME_TIME_MS / 6.0) #total ticks divided into the six cases
       for leg_num in range(0,6):
-        self.compute_amplitudes()
+        self.compute_amplitudes(leg_num)
         if self.wave_case[leg_num] == 1:                               #move foot forward (raise and lower)
-          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*tick/numTicks)
-          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*tick/numTicks)
-          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*tick/numTicks)
-          if tick >= numTicks-1: 
+          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*self.tick/numTicks)
+          if self.tick >= numTicks-1: 
             self.wave_case[leg_num] = 6
         elif self.wave_case[leg_num] == 2:                               #move foot back one-fifth (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.5
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.5
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.wave_case[leg_num] = 1
         elif self.wave_case[leg_num] == 3:                               #move foot back one-fifth (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.5
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.5
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.wave_case[leg_num] = 2
         elif self.wave_case[leg_num] == 4:                               #move foot back one-fifth (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.5
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.5
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.wave_case[leg_num] = 3
         elif self.wave_case[leg_num] == 5:                               #move foot back one-fifth (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.5
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.5
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.wave_case[leg_num] = 4
         elif self.wave_case[leg_num] == 6:                               #move foot back one-fifth (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.5
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.5
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.wave_case[leg_num] = 5
       #increment tick
-      if tick < numTicks-1:
-        tick+=1
+      if self.tick < numTicks-1:
+        self.tick+=1
       else:
-        tick = 0
+        self.tick = 0
 
 
   #***********************************************************************
@@ -491,53 +499,53 @@ class Hexapod:
     commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
 
     #if commands more than deadband then process
-    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or tick>0:
-      self.compute_strides()
+    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
+      self.compute_strides(commandedX, commandedY, commandedR)
       numTicks = round(self.duration / self.FRAME_TIME_MS / 6.0) #total ticks divided into the six cases
       for leg_num in range(0,6):
-        self.compute_amplitudes()
+        self.compute_amplitudes(leg_num)
         if self.ripple_case[leg_num] == 1:                               #move foot forward (raise)
-          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*tick/(numTicks*2))
-          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*tick/(numTicks*2))
-          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*tick/(numTicks*2))
-          if tick >= numTicks-1:
+          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*self.tick/(numTicks*2))
+          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*self.tick/(numTicks*2))
+          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*self.tick/(numTicks*2))
+          if self.tick >= numTicks-1:
             self.ripple_case[leg_num] = 2
         elif self.ripple_case[leg_num] == 2:                               #move foot forward (lower)
-          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*(numTicks+tick)/(numTicks*2))
-          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*(numTicks+tick)/(numTicks*2))
-          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*(numTicks+tick)/(numTicks*2))
-          if tick >= numTicks-1:
+          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*(numTicks+self.tick)/(numTicks*2))
+          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*(numTicks+self.tick)/(numTicks*2))
+          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*(numTicks+self.tick)/(numTicks*2))
+          if self.tick >= numTicks-1:
             self.ripple_case[leg_num] = 3
         elif self.ripple_case[leg_num] == 3:                               #move foot back one-quarter (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.0
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.0
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.ripple_case[leg_num] = 4
         elif self.ripple_case[leg_num] == 4:                               #move foot back one-quarter (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.0
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.0
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.ripple_case[leg_num] = 5
         elif self.ripple_case[leg_num] == 5:                               #move foot back one-quarter (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.0
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.0
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.ripple_case[leg_num] = 6
         elif self.ripple_case[leg_num] == 6:                               #move foot back one-quarter (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks/2.0
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks/2.0
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.ripple_case[leg_num] = 1
 
       #increment tick
-      if tick < numTicks-1:
-        tick+=1
+      if self.tick < numTicks-1:
+        self.tick+=1
       else:
-        tick = 0
+        self.tick = 0
 
 
   #***********************************************************************
@@ -552,42 +560,42 @@ class Hexapod:
     commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
 
     #if commands more than deadband then process
-    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or tick>0:
-      self.compute_strides()
+    if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
+      self.compute_strides(commandedX, commandedY, commandedR)
       numTicks = round(self.duration / self.FRAME_TIME_MS / 3.0) #total ticks divided into the three cases
       for leg_num in range(0,6):
-        self.compute_amplitudes()
+        self.compute_amplitudes(leg_num)
         if self.tetrapod_case[leg_num] == 1:                               #move foot forward (raise and lower)
-          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*tick/numTicks)
-          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*tick/numTicks)
-          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*tick/numTicks)
-          if tick >= numTicks-1:
+          self.current_X[leg_num] = self.HOME_X[leg_num] - self.amplitudeX*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Y[leg_num] = self.HOME_Y[leg_num] - self.amplitudeY*math.cos(self.M_PI*self.tick/numTicks)
+          self.current_Z[leg_num] = self.HOME_Z[leg_num] + abs(self.amplitudeZ)*math.sin(self.M_PI*self.tick/numTicks)
+          if self.tick >= numTicks-1:
             self.tetrapod_case[leg_num] = 2
           break
         elif self.tetrapod_case[leg_num] == 2:                               #move foot back one-half (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.tetrapod_case[leg_num] = 3
           break
         elif self.tetrapod_case[leg_num] == 3:                               #move foot back one-half (on the ground)
           self.current_X[leg_num] = self.current_X[leg_num] - self.amplitudeX/numTicks
           self.current_Y[leg_num] = self.current_Y[leg_num] - self.amplitudeY/numTicks
           self.current_Z[leg_num] = self.HOME_Z[leg_num]
-          if tick >= numTicks-1:
+          if self.tick >= numTicks-1:
             self.tetrapod_case[leg_num] = 1
       #increment tick
-      if tick < numTicks-1:
-        tick+=1
+      if self.tick < numTicks-1:
+        self.tick+=1
       else:
-        tick = 0
+        self.tick = 0
 
 
   #***********************************************************************
   # Compute walking stride lengths
   #***********************************************************************
-  def compute_strides(self):
+  def compute_strides(self, commandedX, commandedY, commandedR):
     #compute stride lengths
     self.strideX = 90*commandedX/127
     self.strideY = 90*commandedY/127
@@ -607,10 +615,10 @@ class Hexapod:
   #***********************************************************************
   # Compute walking amplitudes
   #***********************************************************************
-  def compute_amplitudes(self):
+  def compute_amplitudes(self, leg_num: int):
     #compute total distance from center of body to toe
-    self.totalX = self.HOME_X[leg_num] + BODY_X[leg_num]
-    self.totalY = self.HOME_Y[leg_num] + BODY_Y[leg_num]
+    self.totalX = self.HOME_X[leg_num] + self.BODY_X[leg_num]
+    self.totalY = self.HOME_Y[leg_num] + self.BODY_Y[leg_num]
 
     #compute rotational offset
     self.rotOffsetX = self.totalY*self.sinRotZ + self.totalX*self.cosRotZ - self.totalX
@@ -619,8 +627,8 @@ class Hexapod:
     #compute X and Y amplitude and constrain to prevent legs from crashing into each other
     self.amplitudeX = ((self.strideX + self.rotOffsetX)/2.0)
     self.amplitudeY = ((self.strideY + self.rotOffsetY)/2.0)
-    self.amplitudeX = constrain(self.amplitudeX,-50,50)
-    self.amplitudeY = constrain(self.amplitudeY,-50,50)
+    self.amplitudeX = self.constrain(self.amplitudeX,-50,50)
+    self.amplitudeY = self.constrain(self.amplitudeY,-50,50)
 
     #compute Z amplitude
     if abs(self.strideX + self.rotOffsetX) > abs(self.strideY + self.rotOffsetY):
@@ -673,12 +681,12 @@ class Hexapod:
   #***********************************************************************
   def rotate_control(self):
     #compute rotation sin/cos values using controller inputs
-    sinRotX = math.sin((self.map(self.controller.analog(self.PSS_RX),0,255,A12DEG,-A12DEG))/1000000.0)
-    cosRotX = math.cos((self.map(self.controller.analog(self.PSS_RX),0,255,A12DEG,-A12DEG))/1000000.0)
-    sinRotY = math.sin((self.map(self.controller.analog(self.PSS_RY),0,255,A12DEG,-A12DEG))/1000000.0)
-    cosRotY = math.cos((self.map(self.controller.analog(self.PSS_RY),0,255,A12DEG,-A12DEG))/1000000.0)
-    self.sinRotZ = math.sin((self.map(self.controller.analog(self.PSS_LX),0,255,-A30DEG,A30DEG))/1000000.0)
-    self.cosRotZ = math.cos((self.map(self.controller.analog(self.PSS_LX),0,255,-A30DEG,A30DEG))/1000000.0)
+    sinRotX = math.sin((self.map(self.controller.analog(self.PSS_RX),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    cosRotX = math.cos((self.map(self.controller.analog(self.PSS_RX),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    sinRotY = math.sin((self.map(self.controller.analog(self.PSS_RY),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    cosRotY = math.cos((self.map(self.controller.analog(self.PSS_RY),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    self.sinRotZ = math.sin((self.map(self.controller.analog(self.PSS_LX),0,255,-self.A30DEG,self.A30DEG))/1000000.0)
+    self.cosRotZ = math.cos((self.map(self.controller.analog(self.PSS_LX),0,255,-self.A30DEG,self.A30DEG))/1000000.0)
 
     #compute Z direction move
     self.translateZ = self.controller.analog(self.PSS_LY)
@@ -689,9 +697,9 @@ class Hexapod:
 
     for leg_num in range(0,6):
       #compute total distance from center of body to toe
-      self.totalX = self.HOME_X[leg_num] + BODY_X[leg_num]
-      self.totalY = self.HOME_Y[leg_num] + BODY_Y[leg_num]
-      self.totalZ = self.HOME_Z[leg_num] + BODY_Z[leg_num]
+      self.totalX = self.HOME_X[leg_num] + self.BODY_X[leg_num]
+      self.totalY = self.HOME_Y[leg_num] + self.BODY_Y[leg_num]
+      self.totalZ = self.HOME_Z[leg_num] + self.BODY_Z[leg_num]
 
       #perform 3 axis rotations
       self.rotOffsetX =  self.totalX*cosRotY*self.cosRotZ + self.totalY*sinRotX*sinRotY*self.cosRotZ + self.totalY*cosRotX*self.sinRotZ - self.totalZ*cosRotX*sinRotY*self.cosRotZ + self.totalZ*sinRotX*self.sinRotZ - self.totalX
@@ -740,37 +748,37 @@ class Hexapod:
     #process right joystick left/right axis
     self.temp = self.controller.analog(self.PSS_RX)
     self.temp = self.map(self.temp,0,255,45,-45)
-    self.coxa1_servo.write(constrain(int(self.leg1_coxa+self.temp),45,135))
+    self.coxa1_servo.write(self.constrain(int(self.leg1_coxa+self.temp),45,135))
 
     #process right joystick up/down axis
     self.temp = self.controller.analog(self.PSS_RY)
     if self.temp < 117:                                #if joystick moved up
       self.temp = self.map(self.temp,116,0,0,24)                #move leg 1
-      self.femur1_servo.write(constrain(int(self.leg1_femur+self.temp),0,170))
-      self.tibia1_servo.write(constrain(int(self.leg1_tibia+4*self.temp),0,170))
+      self.femur1_servo.write(self.constrain(int(self.leg1_femur+self.temp),0,170))
+      self.tibia1_servo.write(self.constrain(int(self.leg1_tibia+4*self.temp),0,170))
     else:                                          #if joystick moved down
-      self.z_height_right = constrain(self.temp,140,255)   #set Z step height
+      self.z_height_right = self.constrain(self.temp,140,255)   #set Z step height
       self.z_height_right = self.map(self.z_height_right,140,255,1,8)
 
     #process left joystick left/right axis
     self.temp = self.controller.analog(self.PSS_LX)
     self.temp = self.map(self.temp,0,255,45,-45)
-    self.coxa6_servo.write(constrain(int(self.leg6_coxa+self.temp),45,135))
+    self.coxa6_servo.write(self.constrain(int(self.leg6_coxa+self.temp),45,135))
 
     #process left joystick up/down axis
     self.temp = self.controller.analog(self.PSS_LY)
     if self.temp < 117:                                #if joystick moved up
       self.temp = self.map(self.temp,116,0,0,24)                #move leg 6
-      self.femur6_servo.write(constrain(int(self.leg6_femur+self.temp),0,170))
-      self.tibia6_servo.write(constrain(int(self.leg6_tibia+4*self.temp),0,170))
+      self.femur6_servo.write(self.constrain(int(self.leg6_femur+self.temp),0,170))
+      self.tibia6_servo.write(self.constrain(int(self.leg6_tibia+4*self.temp),0,170))
     else:                                          #if joystick moved down
-      self.z_height_left = constrain(self.temp,140,255)    #set Z step height
+      self.z_height_left = self.constrain(self.temp,140,255)    #set Z step height
       self.z_height_left = self.map(self.z_height_left,140,255,1,8)
 
     #process z height adjustment
     if self.z_height_left>self.z_height_right: 
       self.z_height_right = self.z_height_left             #use max left or right value
-    if batt_LEDs > 3:
+    if self.batt_LEDs > 3:
       z_height_LED_color=0       #use red LEDs if battery strong
     else:
       z_height_LED_color=1       #use green LEDs if battery weak
@@ -787,28 +795,28 @@ class Hexapod:
   #      constants section above so all angles appear as 90 degrees
   #***********************************************************************
   def set_all_90(self):
-    self.coxa1_servo.write(90+COXA_CAL[0]) 
-    self.femur1_servo.write(90+FEMUR_CAL[0]) 
+    self.coxa1_servo.write(90+self.COXA_CAL[0]) 
+    self.femur1_servo.write(90+self.FEMUR_CAL[0]) 
     self.tibia1_servo.write(90+self.TIBIA_CAL[0]) 
     
-    self.coxa2_servo.write(90+COXA_CAL[1]) 
-    self.femur2_servo.write(90+FEMUR_CAL[1]) 
+    self.coxa2_servo.write(90+self.COXA_CAL[1]) 
+    self.femur2_servo.write(90+self.FEMUR_CAL[1]) 
     self.tibia2_servo.write(90+self.TIBIA_CAL[1]) 
     
-    self.coxa3_servo.write(90+COXA_CAL[2]) 
-    self.femur3_servo.write(90+FEMUR_CAL[2]) 
+    self.coxa3_servo.write(90+self.COXA_CAL[2]) 
+    self.femur3_servo.write(90+self.FEMUR_CAL[2]) 
     self.tibia3_servo.write(90+self.TIBIA_CAL[2]) 
     
-    self.coxa4_servo.write(90+COXA_CAL[3]) 
-    self.femur4_servo.write(90+FEMUR_CAL[3]) 
+    self.coxa4_servo.write(90+self.COXA_CAL[3]) 
+    self.femur4_servo.write(90+self.FEMUR_CAL[3]) 
     self.tibia4_servo.write(90+self.TIBIA_CAL[3]) 
     
-    self.coxa5_servo.write(90+COXA_CAL[4]) 
-    self.femur5_servo.write(90+FEMUR_CAL[4]) 
+    self.coxa5_servo.write(90+self.COXA_CAL[4]) 
+    self.femur5_servo.write(90+self.FEMUR_CAL[4]) 
     self.tibia5_servo.write(90+self.TIBIA_CAL[4]) 
     
-    self.coxa6_servo.write(90+COXA_CAL[5]) 
-    self.femur6_servo.write(90+FEMUR_CAL[5]) 
+    self.coxa6_servo.write(90+self.COXA_CAL[5]) 
+    self.femur6_servo.write(90+self.FEMUR_CAL[5]) 
     self.tibia6_servo.write(90+self.TIBIA_CAL[5])
 
 
@@ -832,11 +840,11 @@ class Hexapod:
 
     #remap battery voltage for display on the LEDs
     #minimum = 10.2V, maximum (full) = 12.3V
-    batt_LEDs = self.map(constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
-    if batt_LEDs > 3:
-      self.LED_Bar(1,batt_LEDs) #display green if voltage >= 11.40V
+    self.batt_LEDs = self.map(self.constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
+    if self.batt_LEDs > 3:
+      self.LED_Bar(1,self.batt_LEDs) #display green if voltage >= 11.40V
     else:
-      self.LED_Bar(0,batt_LEDs)              #display red if voltage < 11.40V
+      self.LED_Bar(0,self.batt_LEDs)              #display red if voltage < 11.40V
 
 
   #***********************************************************************
@@ -848,19 +856,19 @@ class Hexapod:
   def LED_Bar(self, LED_color: int, LED_count: int):
     #display a red bar
     if LED_color == 0:
-      for i in range(0,self.LED_count):
+      for i in range(0,LED_count):
         digitalWrite((self.RED_LED1+(4*i)),True)
         digitalWrite((self.GREEN_LED1+(4*i)),False)
-      for i in range(self.LED_count, 8):
+      for i in range(LED_count, 8):
         digitalWrite((self.RED_LED1+(4*i)),False)
         digitalWrite((self.GREEN_LED1+(4*i)),False)
     
     #display a green bar
     else:
-      for i in range(0, self.LED_count):
+      for i in range(0, LED_count):
         digitalWrite((self.GREEN_LED1+(4*i)),True)
         digitalWrite((self.RED_LED1+(4*i)),False)
-      for i in range(self.LED_count, 8):
+      for i in range(LED_count, 8):
         digitalWrite((self.GREEN_LED1+(4*i)),False)
         digitalWrite((self.RED_LED1+(4*i)),False)
 

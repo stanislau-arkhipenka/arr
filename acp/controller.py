@@ -1,56 +1,42 @@
+import sys
 import logging
 import time
+from typing import Union
 import os, struct, array
 from fcntl import ioctl
 
-class Controller:
+class XboxOneController:
 
     dev_loc = "/dev/input/"
 
-    PSB_PAD_DOWN =  1
-    PSB_PAD_LEFT =  2
-    PSB_PAD_UP =    3
-    PSB_PAD_RIGHT = 4
-    PSB_TRIANGLE =  5
-    PSB_SQUARE =    6
-    PSB_CIRCLE =    7
-    PSB_CROSS =     8
-    PSB_START =     9
-    PSB_L1  =       10
-    PSB_R1  =       11
-    PSS_RX =        12
-    PSS_RY =        13
-    PSS_LX =        14
-    PSS_LY =        15
-
 
     axis_names = {
-    0x00 : 'x',
-    0x01 : 'y',
-    0x02 : 'z',
-    0x03 : 'rx',
-    0x04 : 'ry',
-    0x05 : 'rz',
-    0x06 : 'throttle',
-    0x07 : 'rudder',
-    0x08 : 'wheel',
-    0x09 : 'gas',
-    0x0a : 'brake',
-    0x10 : 'hat0x',
-    0x11 : 'hat0y',
-    0x12 : 'hat1x',
-    0x13 : 'hat1y',
-    0x14 : 'hat2x',
-    0x15 : 'hat2y',
-    0x16 : 'hat3x',
-    0x17 : 'hat3y',
-    0x18 : 'pressure',
-    0x19 : 'distance',
-    0x1a : 'tilt_x',
-    0x1b : 'tilt_y',
-    0x1c : 'tool_width',
-    0x20 : 'volume',
-    0x28 : 'misc',
+        0x00 : 'lx',
+        0x01 : 'ly',
+        0x02 : 'throttle_l',
+        0x03 : 'rx',
+        0x04 : 'ry',
+        0x05 : 'throttle_r',
+        0x06 : 'other_1',
+        0x07 : 'other_2',
+        0x08 : 'other_3',
+        0x09 : 'other_4',
+        0x0a : 'other_5',
+        0x10 : 'hat0x',
+        0x11 : 'hat0y',
+        0x12 : 'hat1x',
+        0x13 : 'hat1y',
+        0x14 : 'hat2x',
+        0x15 : 'hat2y',
+        0x16 : 'hat3x',
+        0x17 : 'hat3y',
+        0x18 : 'other_6',
+        0x19 : 'other_7',
+        0x1a : 'other_8',
+        0x1b : 'other_9',
+        0x1c : 'other_10',
+        0x20 : 'other_11',
+        0x28 : 'misc',
     }
 
     button_names = {
@@ -97,7 +83,9 @@ class Controller:
 
     def __init__(self, **kwargs):
         self.axis_states = {}
+        self.last_axist_states = {}
         self.button_states = {}
+        self.last_button_states = {}
         self.axis_map = []
         self.button_map = []
         self.fn = self.await_controller()
@@ -156,26 +144,54 @@ class Controller:
 
 
 
-    def tik(self):
-        evbuf = self.jsdev.read(8)
-        if evbuf:
-            time1, value, type, number = struct.unpack('IhBB', evbuf)
+    def read_gamepad(self, vibrate: bool = False):   # TODO vibrate not implemented
+        self.evbuf = self.jsdev.read(8)
+        if self.evbuf:
 
-            if type & 0x80:
-                print("(initial)", end="")
-
+            time1, value, type, number = struct.unpack('IhBB', self.evbuf)
+            logging.info(time1)
             if type & 0x01:
                 button = self.button_map[number]
                 if button:
                     self.button_states[button] = value
                     if value:
-                        print("%s pressed" % (button))
+                        logging.debug("%s pressed" % (button))
                     else:
-                        print("%s released" % (button))
+                        logging.debug("%s released" % (button))
 
             if type & 0x02:
                 axis = self.axis_map[number]
                 if axis:
                     fvalue = value / 32767.0
                     self.axis_states[axis] = fvalue
-                    print("%s: %.3f" % (axis, fvalue))
+                    logging.debug("%s: %.3f" % (axis, fvalue))
+
+
+    def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed 
+        return False # TODO
+
+    def button_released(self, button_id: str) -> bool: 
+        return False # TODO
+
+    def button(self, button_id: str) -> bool: # Just read if button is pressed right now
+        return self.button_states[button_id] # TODO what is the type of returned valued?
+
+
+    def analog(self, analog_id: str, to_bin: bool = False) -> Union[float,bool]:
+        return analog_id > 0.5 if to_bin else self.axis_states[analog_id]
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+            level=logging.DEBUG,
+            format="[%(levelname)s] %(message)s",
+            handlers=[
+            logging.StreamHandler()
+            ]
+        )
+    c = XboxOneController()
+    while True:
+
+        c.read_gamepad()
+        time.sleep(1)
+        logging.info("----------------")
