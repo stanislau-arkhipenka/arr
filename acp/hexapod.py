@@ -38,6 +38,9 @@ class DummyController:
   def ButtonPressed(self, button: int):
     print(f"button {button} pressed")
 
+  def read_gamepad(self, vibrate: int):
+    pass
+
 def digitalWrite(led_id: int, value: bool):
   print(f"Set led {led_id} to {value}")
 

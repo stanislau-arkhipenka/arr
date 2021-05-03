@@ -1,6 +1,6 @@
-from .acp import Acp
+from acp.acp_robot import AcpRobot
 
 
 
 if __name__ == "__main__":
-    Acp().run()
+    AcpRobot().run()
