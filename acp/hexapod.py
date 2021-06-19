@@ -26,6 +26,7 @@ class DummyServo:
     self.value = value
 
   def read(self):
+    print(f"servo read {self.value}")
     return self.value
 
 class DummyController:
@@ -112,11 +113,19 @@ class Hexapod:
   BUT_THUMBL = 'thumbr'
   BUT_TL = 'tl'
   BUT_TR = 'tr'
-  
+  BUT_L2 = 'l2'
+  BUT_R2 = 'r2'
+
   PAD_UP = 'pad_up'
   PAD_DOWN = 'pad_down'
   PAD_LEFT = 'pad_left'
   PAD_RIGHT = 'pad_right'
+
+  AS_LX = 'lx'
+  AS_LY = 'ly'
+  
+  AS_RX = 'rx'
+  AS_RY = 'ry'
 
   def map(self, x: float, in_min: float, in_max: float, out_min: float, out_max: float):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -137,15 +146,16 @@ class Hexapod:
     
     # Variable Declarations
     self.batt_voltage_array = []
+    self.batt_voltage = 0
     self.currentTime = datetime.datetime.now()
     self.previousTime = datetime.datetime.now()
 
-    self.offset_X = []
-    self.offset_Y = [] 
-    self.offset_Z = []
-    self.current_X = []
-    self.current_Y = []
-    self.current_Z = []
+    self.offset_X = [0] * 6
+    self.offset_Y = [0] * 6
+    self.offset_Z = [0] * 6
+    self.current_X = [0] * 6
+    self.current_Y = [0] * 6
+    self.current_Z = [0] * 6
 
     self.tripod_case   = [1,2,1,2,1,2]     #for tripod gait walking
     self.ripple_case   = [2,6,4,1,3,5]     #for ripple gait
@@ -174,6 +184,9 @@ class Hexapod:
     self.femur6_servo = DummyServo()
     self.tibia6_servo = DummyServo()
 
+    self.capture_offsets = False
+    self.step_height_multiplier = 1
+
     self.mode = 0
     self.gait = 0
     self.gait_speed = 0
@@ -183,6 +196,8 @@ class Hexapod:
 
     self.gamepad_vibrate = 0
     self.tick = 0
+
+    self.batt_LEDs = 0
 
   #***********************************************************************
   # Main Program
@@ -303,7 +318,7 @@ class Hexapod:
     if self.controller.button_pressed(self.BUT_TL) or self.controller.button_pressed(self.BUT_TR):
       #capture offsets in translate, rotate, and translate/rotate modes
       self.capture_offsets = True
-    if self.controller.button_pressed(self.PSB_L2) or self.controller.button_pressed(self.PSB_R2):   # TODO ANALOG to BIN
+    if self.controller.button_pressed(self.BUT_L2) or self.controller.button_pressed(self.BUT_R2):   # TODO ANALOG to BIN
       for leg_num in range(0,6):  #clear offsets
         self.offset_X[leg_num] = 0
         self.offset_Y[leg_num] = 0
@@ -325,7 +340,7 @@ class Hexapod:
     #process only if reach is within possible range (not too long or too short!)
     if L3 < self.TIBIA_LENGTH+self.FEMUR_LENGTH and L3 > self.TIBIA_LENGTH-self.FEMUR_LENGTH:  
       #compute tibia angle
-      phi_tibia = math.acos((pow(self.FEMUR_LENGTH,2) + pow(self.TIBIA_LENGTH) - pow(L3,2))/(2*self.FEMUR_LENGTH*self.TIBIA_LENGTH))
+      phi_tibia = math.acos((pow(self.FEMUR_LENGTH,2) + pow(self.TIBIA_LENGTH, 2) - pow(L3,2))/(2*self.FEMUR_LENGTH*self.TIBIA_LENGTH))  # TODO check pow(self.TIBIA_LENGTH, 2????)
       theta_tibia = phi_tibia*self.RAD_TO_DEG - 23.0 + self.TIBIA_CAL[leg_num]
       theta_tibia = self.constrain(theta_tibia,0.0,180.0)
     
@@ -399,9 +414,9 @@ class Hexapod:
   #***********************************************************************
   def tripod_gait(self):
     #read commanded values from controller
-    commandedX = self.map(self.controller.analog(self.PSS_RY),0,255,127,-127)
-    commandedY = self.map(self.controller.analog(self.PSS_RX),0,255,-127,127)
-    commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
+    commandedX = self.map(self.controller.analog(self.AS_RY),0,255,127,-127)
+    commandedY = self.map(self.controller.analog(self.AS_RX),0,255,-127,127)
+    commandedR = self.map(self.controller.analog(self.AS_LX),0,255,127,-127)
       
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -434,9 +449,9 @@ class Hexapod:
   #***********************************************************************
   def wave_gait(self):
     #read commanded values from controller
-    commandedX = self.map(self.controller.analog(self.PSS_RY),0,255,127,-127)
-    commandedY = self.map(self.controller.analog(self.PSS_RX),0,255,-127,127)
-    commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
+    commandedX = self.map(self.controller.analog(self.AS_RY),0,255,127,-127)
+    commandedY = self.map(self.controller.analog(self.AS_RX),0,255,-127,127)
+    commandedR = self.map(self.controller.analog(self.AS_LX),0,255,127,-127)
 
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -494,9 +509,9 @@ class Hexapod:
   #***********************************************************************
   def ripple_gait(self):
     #read commanded values from controller
-    commandedX = self.map(self.controller.analog(self.PSS_RY),0,255,127,-127)
-    commandedY = self.map(self.controller.analog(self.PSS_RX),0,255,-127,127)
-    commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
+    commandedX = self.map(self.controller.analog(self.AS_RY),0,255,127,-127)
+    commandedY = self.map(self.controller.analog(self.AS_RX),0,255,-127,127)
+    commandedR = self.map(self.controller.analog(self.AS_LX),0,255,127,-127)
 
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -555,9 +570,9 @@ class Hexapod:
   #***********************************************************************
   def tetrapod_gait(self):
     #read commanded values from controller
-    commandedX = self.map(self.controller.analog(self.PSS_RY),0,255,127,-127)
-    commandedY = self.map(self.controller.analog(self.PSS_RX),0,255,-127,127)
-    commandedR = self.map(self.controller.analog(self.PSS_LX),0,255,127,-127)
+    commandedX = self.map(self.controller.analog(self.AS_RY),0,255,127,-127)
+    commandedY = self.map(self.controller.analog(self.AS_RX),0,255,-127,127)
+    commandedR = self.map(self.controller.analog(self.AS_LX),0,255,127,-127)
 
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -642,17 +657,17 @@ class Hexapod:
   #***********************************************************************
   def translate_control(self):
     #compute X direction move
-    self.translateX = self.map(self.controller.analog(self.PSS_RY),0,255,-2*self.TRAVEL,2*self.TRAVEL)
+    self.translateX = self.map(self.controller.analog(self.AS_RY),0,255,-2*self.TRAVEL,2*self.TRAVEL)
     for leg_num in range(0,6):
       self.current_X[leg_num] = self.HOME_X[leg_num] + self.translateX
       
     #compute Y direction move
-    self.translateY = self.map(self.controller.analog(self.PSS_RX),0,255,2*self.TRAVEL,-2*self.TRAVEL)
+    self.translateY = self.map(self.controller.analog(self.AS_RX),0,255,2*self.TRAVEL,-2*self.TRAVEL)
     for leg_num in range(0,6):
       self.current_Y[leg_num] = self.HOME_Y[leg_num] + self.translateY
 
     #compute Z direction move
-    self.translateZ = self.controller.analog(self.PSS_LY)
+    self.translateZ = self.controller.analog(self.AS_LY)
     if self.translateZ > 127:
       self.translateZ = self.map(self.translateZ,128,255,0,self.TRAVEL) 
     else:
@@ -681,15 +696,15 @@ class Hexapod:
   #***********************************************************************
   def rotate_control(self):
     #compute rotation sin/cos values using controller inputs
-    sinRotX = math.sin((self.map(self.controller.analog(self.PSS_RX),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
-    cosRotX = math.cos((self.map(self.controller.analog(self.PSS_RX),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
-    sinRotY = math.sin((self.map(self.controller.analog(self.PSS_RY),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
-    cosRotY = math.cos((self.map(self.controller.analog(self.PSS_RY),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
-    self.sinRotZ = math.sin((self.map(self.controller.analog(self.PSS_LX),0,255,-self.A30DEG,self.A30DEG))/1000000.0)
-    self.cosRotZ = math.cos((self.map(self.controller.analog(self.PSS_LX),0,255,-self.A30DEG,self.A30DEG))/1000000.0)
+    sinRotX = math.sin((self.map(self.controller.analog(self.AS_RX),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    cosRotX = math.cos((self.map(self.controller.analog(self.AS_RX),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    sinRotY = math.sin((self.map(self.controller.analog(self.AS_RY),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    cosRotY = math.cos((self.map(self.controller.analog(self.AS_RY),0,255,self.A12DEG,-self.A12DEG))/1000000.0)
+    self.sinRotZ = math.sin((self.map(self.controller.analog(self.AS_LX),0,255,-self.A30DEG,self.A30DEG))/1000000.0)
+    self.cosRotZ = math.cos((self.map(self.controller.analog(self.AS_LX),0,255,-self.A30DEG,self.A30DEG))/1000000.0)
 
     #compute Z direction move
-    self.translateZ = self.controller.analog(self.PSS_LY)
+    self.translateZ = self.controller.analog(self.AS_LY)
     if self.translateZ > 127:
       self.translateZ = self.map(self.translateZ,128,255,0,self.TRAVEL) 
     else:
@@ -746,12 +761,14 @@ class Hexapod:
       self.leg6_IK_control = False
 
     #process right joystick left/right axis
-    self.temp = self.controller.analog(self.PSS_RX)
+    self.temp = self.controller.analog(self.AS_RX)
     self.temp = self.map(self.temp,0,255,45,-45)
+    print("!!!! coxa", self.leg1_coxa)
+    print("!!!! temp", self.temp)
     self.coxa1_servo.write(self.constrain(int(self.leg1_coxa+self.temp),45,135))
 
     #process right joystick up/down axis
-    self.temp = self.controller.analog(self.PSS_RY)
+    self.temp = self.controller.analog(self.AS_RY)
     if self.temp < 117:                                #if joystick moved up
       self.temp = self.map(self.temp,116,0,0,24)                #move leg 1
       self.femur1_servo.write(self.constrain(int(self.leg1_femur+self.temp),0,170))
@@ -761,12 +778,12 @@ class Hexapod:
       self.z_height_right = self.map(self.z_height_right,140,255,1,8)
 
     #process left joystick left/right axis
-    self.temp = self.controller.analog(self.PSS_LX)
+    self.temp = self.controller.analog(self.AS_LX)
     self.temp = self.map(self.temp,0,255,45,-45)
     self.coxa6_servo.write(self.constrain(int(self.leg6_coxa+self.temp),45,135))
 
     #process left joystick up/down axis
-    self.temp = self.controller.analog(self.PSS_LY)
+    self.temp = self.controller.analog(self.AS_LY)
     if self.temp < 117:                                #if joystick moved up
       self.temp = self.map(self.temp,116,0,0,24)                #move leg 6
       self.femur6_servo.write(self.constrain(int(self.leg6_femur+self.temp),0,170))
@@ -826,25 +843,26 @@ class Hexapod:
   # (fully charged = 12.6V, nominal = 11.4V, discharged = 10.2V)
   #***********************************************************************
   def battery_monitor(self):
-    #update voltage sum (remove oldest value and insert new value into array)
-    self.batt_voltage_sum = self.batt_voltage_sum - self.batt_voltage_array[self.batt_voltage_index]
-    #scale voltage reading to 0 to 14.97V (slight recalibration due to resistor tolerances)
-    self.batt_voltage_array[self.batt_voltage_index] = self.map(analogRead(BATT_VOLTAGE),0,1023,0,1497)
-    self.batt_voltage_sum = self.batt_voltage_sum + self.batt_voltage_array[self.batt_voltage_index]
-    self.batt_voltage_index = self.batt_voltage_index + 1
-    if self.batt_voltage_index > 49:
-      self.batt_voltage_index = 0
+    pass # TODO uncomment and make it work later
+    # #update voltage sum (remove oldest value and insert new value into array)
+    # self.batt_voltage_sum = self.batt_voltage_sum - self.batt_voltage_array[self.batt_voltage_index]
+    # #scale voltage reading to 0 to 14.97V (slight recalibration due to resistor tolerances)
+    # self.batt_voltage_array[self.batt_voltage_index] = self.map(analogRead(BATT_VOLTAGE),0,1023,0,1497)
+    # self.batt_voltage_sum = self.batt_voltage_sum + self.batt_voltage_array[self.batt_voltage_index]
+    # self.batt_voltage_index = self.batt_voltage_index + 1
+    # if self.batt_voltage_index > 49:
+    #   self.batt_voltage_index = 0
 
-    #compute average battery voltage over the 50 samples
-    self.batt_voltage = self.batt_voltage_sum / 50
+    # #compute average battery voltage over the 50 samples
+    # self.batt_voltage = self.batt_voltage_sum / 50
 
-    #remap battery voltage for display on the LEDs
-    #minimum = 10.2V, maximum (full) = 12.3V
-    self.batt_LEDs = self.map(self.constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
-    if self.batt_LEDs > 3:
-      self.LED_Bar(1,self.batt_LEDs) #display green if voltage >= 11.40V
-    else:
-      self.LED_Bar(0,self.batt_LEDs)              #display red if voltage < 11.40V
+    # #remap battery voltage for display on the LEDs
+    # #minimum = 10.2V, maximum (full) = 12.3V
+    # self.batt_LEDs = self.map(self.constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
+    # if self.batt_LEDs > 3:
+    #   self.LED_Bar(1,self.batt_LEDs) #display green if voltage >= 11.40V
+    # else:
+    #   self.LED_Bar(0,self.batt_LEDs)              #display red if voltage < 11.40V
 
 
   #***********************************************************************
