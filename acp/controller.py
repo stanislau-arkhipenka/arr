@@ -1,14 +1,18 @@
+import asyncio
 import sys
 import logging
 import time
-from typing import Union
+from typing import Union, Dict, List
 import os, struct, array
 from fcntl import ioctl
+import datetime
+import threading
 
 class XboxOneController:
 
     dev_loc = "/dev/input/"
 
+    FRAME_TIME_MS = 20
 
     axis_names = {
         0x00 : 'lx',
@@ -82,13 +86,14 @@ class XboxOneController:
     }
 
     def __init__(self, **kwargs):
-        self.axis_states = {}
-        self.last_axist_states = {}
-        self.button_states = {}
-        self.last_button_states = {}
-        self.axis_map = []
-        self.button_map = []
-        self.fn = self.await_controller()
+        self.axis_states: Dict = {}
+        self.axis_states_ts: Dict = {}
+        self.button_states: Dict = {}
+        self.slow_button_old: Dict = {}
+        self.slow_button_new: Dict = {}
+        self.axis_map: List = []
+        self.button_map: List = []
+        self.fn: str = self.await_controller()
 
         logging.info("Connecting to controller")
         self.jsdev = open(self.fn, 'rb')
@@ -129,7 +134,7 @@ class XboxOneController:
 
         logging.info('%d axes found: %s' % (self.num_axes, ', '.join(self.axis_map)))
         logging.info('%d buttons found: %s' % (self.num_buttons, ', '.join(self.button_map)))
-
+        self.monitor_dev()
 
     def await_controller(self):
         logging.info("Waiting for controller")
@@ -143,55 +148,66 @@ class XboxOneController:
                     time.sleep(1)
 
 
+    def monitor_dev(self):
+        t = threading.Thread(target=self._monitor_dev)
+        t.start()
 
-    def read_gamepad(self, vibrate: bool = False):   # TODO vibrate not implemented
-        self.evbuf = self.jsdev.read(8)
-        if self.evbuf:
+    def _monitor_dev(self, vibrate: bool = False) -> None:   # TODO vibrate not implemented
+        while True:
+            self.evbuf = self.jsdev.read(8)
+            if self.evbuf:
+                time1, value, type, number = struct.unpack('IhBB', self.evbuf)
+                if type & 0x01:
+                    button = self.button_map[number]
+                    if button:
+                        self.button_states[button] = value
+                        if value:
+                            logging.debug("%s pressed, %s", button, time1)
+                        else:
+                            logging.debug("%s released, %s", button, time1)
 
-            time1, value, type, number = struct.unpack('IhBB', self.evbuf)
-            logging.info(time1)
-            if type & 0x01:
-                button = self.button_map[number]
-                if button:
-                    self.button_states[button] = value
-                    if value:
-                        logging.debug("%s pressed" % (button))
-                    else:
-                        logging.debug("%s released" % (button))
+                elif type & 0x02:
+                    axis = self.axis_map[number]
+                    if axis:
+                        fvalue = value / 32767.0
+                        if axis in ['hat0x', 'hat0y']:  # hack for dpad
+                            self.button_states[axis] = int(fvalue)
+                            tmp_int =  int(fvalue)
+                            self.button_states["pad_up"] = 1 if axis == 'hat0y' and tmp_int == -1 else 0
+                            self.button_states["pad_down"] = 1 if axis == 'hat0y' and tmp_int == 1 else 0
+                            self.button_states['pad_left'] = 1 if axis == 'hat0x' and tmp_int == -1 else 0
+                            self.button_states['pad_right'] = 1 if axis == 'hat0x' and tmp_int == 1 else 0
+                        
+                        self.axis_states[axis] = fvalue
+                        logging.debug("%s: %.3f" % (axis, fvalue))
 
-            if type & 0x02:
-                axis = self.axis_map[number]
-                if axis:
-                    fvalue = value / 32767.0
-                    self.axis_states[axis] = fvalue
-                    logging.debug("%s: %.3f" % (axis, fvalue))
-
-
-    def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed 
-        return False # TODO
+    def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed
+        return self.slow_button_old.get(button_id, 0) == 0 and self.slow_button_new.get(button_id, 0) == 1
 
     def button_released(self, button_id: str) -> bool: 
-        return False # TODO
+        return self.slow_button_old.get(button_id, 0) == 1 and self.slow_button_new.get(button_id, 0) == 0
 
     def button(self, button_id: str) -> bool: # Just read if button is pressed right now
-        return self.button_states[button_id] # TODO what is the type of returned valued?
-
+        return self.slow_button_new.get(button_id, 0) == 1
 
     def analog(self, analog_id: str, to_bin: bool = False) -> Union[float,bool]:
         return analog_id > 0.5 if to_bin else self.axis_states[analog_id]
 
+    def read_gamepad(self, vibrate: bool = False):
+        self.slow_button_old: Dict = self.slow_button_new.copy()
+        self.slow_button_new: Dict = self.button_states.copy()
+
+
 
 if __name__ == "__main__":
     logging.basicConfig(
-            level=logging.DEBUG,
-            format="[%(levelname)s] %(message)s",
-            handlers=[
-            logging.StreamHandler()
-            ]
-        )
+        level=logging.INFO,
+        format="[%(levelname)s] %(message)s",
+        handlers=[
+        logging.StreamHandler()
+        ]
+    )
     c = XboxOneController()
     while True:
-
-        c.read_gamepad()
-        time.sleep(1)
-        logging.info("----------------")
+        time.sleep(0.1)
+        print(c.button_states)
