@@ -5,4 +5,4 @@ from acp.hexapod import DummyServo
 
 
 if __name__ == "__main__":
-    AcpRobot().run()
+    AcpRobot(debug_servo=False, debug_controller=False).run()

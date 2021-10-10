@@ -11,14 +11,22 @@ class AcpRobot(Hexapod):
 
     PCA_FREQ = 50 # Servo control freq
 
-    def __init__(self):
+    def __init__(self, debug_servo: bool = False, debug_controller: bool = False):
         super().__init__()
-        self.controller = XboxOneController()
+        if not debug_controller:
+            self.controller = XboxOneController()
+        if not debug_servo:
+            self._init_servo()
+        
+        
+        
+
+    def _init_servo(self):
         self.i2c = busio.I2C(board.SCL, board.SDA)
-        # self.pca1 = adafruit_pca9685.PCA9685(i2c, address=0x40)
-        # self.pca2 = adafruit_pca9685.PCA9685(i2c, address=0x40) # TODO change address
-        # self.pca1.frequency = PCA_FREQ
-        # self.pca1.frequency = PCA_FREQ
+        self.pca1 = adafruit_pca9685.PCA9685(self.i2c, address=0x40)
+        self.pca2 = adafruit_pca9685.PCA9685(self.i2c, address=0x40) # TODO change address
+        self.pca1.frequency = self.PCA_FREQ
+        self.pca1.frequency = self.PCA_FREQ
 
         self.servo_kit_1 = ServoKit(channels=16, i2c=self.i2c,address=0x40)
         self.servo_kit_2 = ServoKit(channels=16, i2c=self.i2c,address=0x40) # TODO change address

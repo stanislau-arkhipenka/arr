@@ -7,6 +7,7 @@ import os, struct, array
 from fcntl import ioctl
 import datetime
 import threading
+from common import map
 
 class XboxOneController:
 
@@ -86,7 +87,7 @@ class XboxOneController:
     }
 
     def __init__(self, **kwargs):
-        self.axis_states: Dict = {}
+        self.axis_states: Dict[str,int] = {}
         self.axis_states_ts: Dict = {}
         self.button_states: Dict = {}
         self.slow_button_old: Dict = {}
@@ -178,7 +179,7 @@ class XboxOneController:
                             self.button_states['pad_left'] = 1 if axis == 'hat0x' and tmp_int == -1 else 0
                             self.button_states['pad_right'] = 1 if axis == 'hat0x' and tmp_int == 1 else 0
                         
-                        self.axis_states[axis] = fvalue
+                        self.axis_states[axis] = int(map(fvalue, -1.0, 1.0, 0, 255))    # AFAIK hexapod expects int between 0 and 255
                         logging.debug("%s: %.3f" % (axis, fvalue))
 
     def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed
@@ -210,4 +211,5 @@ if __name__ == "__main__":
     c = XboxOneController()
     while True:
         time.sleep(0.1)
-        print(c.button_states)
+        #print(c.button_states)
+        print(c.axis_states)
