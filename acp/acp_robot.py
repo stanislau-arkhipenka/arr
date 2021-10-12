@@ -1,4 +1,3 @@
-import time
 import board
 import busio
 import adafruit_pca9685
@@ -50,7 +49,3 @@ class AcpRobot(Hexapod):
         self.femur6_servo = Servo(self.servo_kit_2.servo[0])
         self.tibia6_servo = Servo(self.servo_kit_2.servo[1])
 
-    def run(self) -> None:
-        while(True):
-            self.loop()
-            time.sleep(0.01)

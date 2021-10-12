@@ -8,6 +8,8 @@ from fcntl import ioctl
 import threading
 from common import map
 
+logger = logging.getLogger(__name__)
+
 class XboxOneController:
 
     dev_loc = "/dev/input/"
@@ -95,7 +97,7 @@ class XboxOneController:
         self.button_map: List = []
         self.fn: str = self.await_controller()
 
-        logging.info("Connecting to controller")
+        logger.info("Connecting to controller")
         self.jsdev = open(self.fn, 'rb')
 
         # Get the device name.
@@ -103,7 +105,7 @@ class XboxOneController:
         buf = array.array('B', [0] * 64)
         ioctl(self.jsdev, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
         self.js_name = buf.tobytes().rstrip(b'\x00').decode('utf-8')
-        logging.info('Device name: %s', self.js_name)
+        logger.info('Device name: %s', self.js_name)
 
         # Get number of axes and buttons.
         buf = array.array('B', [0])
@@ -132,19 +134,19 @@ class XboxOneController:
             self.button_map.append(btn_name)
             self.button_states[btn_name] = 0
 
-        logging.info('%d axes found: %s' % (self.num_axes, ', '.join(self.axis_map)))
-        logging.info('%d buttons found: %s' % (self.num_buttons, ', '.join(self.button_map)))
+        logger.info('%d axes found: %s' % (self.num_axes, ', '.join(self.axis_map)))
+        logger.info('%d buttons found: %s' % (self.num_buttons, ', '.join(self.button_map)))
         self.monitor_dev()
 
     def await_controller(self):
-        logging.info("Waiting for controller")
+        logger.info("Waiting for controller")
         while True:
             for fn in os.listdir(self.dev_loc):
                 if fn.startswith('js'):
-                    logging.info( 'Controller found: %s%s', self.dev_loc, fn)
+                    logger.info( 'Controller found: %s%s', self.dev_loc, fn)
                     return f"{self.dev_loc}{fn}"
                 else:
-                    logging.warning("Controller not found")
+                    logger.warning("Controller not found")
                     time.sleep(1)
 
 
@@ -162,9 +164,9 @@ class XboxOneController:
                     if button:
                         self.button_states[button] = value
                         if value:
-                            logging.debug("%s pressed, %s", button, time1)
+                            logger.debug("%s pressed, %s", button, time1)
                         else:
-                            logging.debug("%s released, %s", button, time1)
+                            logger.debug("%s released, %s", button, time1)
 
                 elif type & 0x02:
                     axis = self.axis_map[number]
@@ -179,7 +181,7 @@ class XboxOneController:
                             self.button_states['pad_right'] = 1 if axis == 'hat0x' and tmp_int == 1 else 0
                         
                         self.axis_states[axis] = int(map(fvalue, -1.0, 1.0, 0, 255))    # AFAIK hexapod expects int between 0 and 255
-                        logging.debug("%s: %.3f" % (axis, fvalue))
+                        logger.debug("%s: %.3f" % (axis, fvalue))
 
     def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed
         return self.slow_button_old.get(button_id, 0) == 0 and self.slow_button_new.get(button_id, 0) == 1
@@ -202,7 +204,7 @@ class XboxOneController:
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
-        format="[%(levelname)s] %(message)s",
+        format="[%(levelname)s][%(name)s] %(message)s",
         handlers=[
         logging.StreamHandler()
         ]
@@ -210,5 +212,4 @@ if __name__ == "__main__":
     c = XboxOneController()
     while True:
         time.sleep(0.1)
-        #print(c.button_states)
-        print(c.axis_states)
+        logger.info(c.axis_states)

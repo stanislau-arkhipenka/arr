@@ -13,22 +13,26 @@
 #  https:#www.robotshop.com/community/forum/t/inverse-kinematic-equations-for-lynxmotion-3dof-legs/21336
 #  http:#arduin0.blogspot.com/2012/01/inverse-kinematics-ik-implementation.html?utm_source=rb-community&utm_medium=forum&utm_campaign=inverse-kinematic-equations-for-lynxmotion-3dof-legs
 #***********************************************************************
+import time
 import logging
 import math
 import datetime
 from typing import List, Dict
-from common import map
+from common import map, constrain
+
+logger = logging.getLogger(__name__)
 
 class DummyServo:
   def __init__(self):
     self.value = 0
 
   def write(self, value: int):
-    logging.debug(f"servo write {value}")
-    self.value = value
+    if self.value != value:
+      logger.debug(f"servo write {value}")
+      self.value = value
 
   def read(self):
-    logging.debug(f"servo read {self.value}")
+    logger.debug(f"servo read {self.value}")
     return self.value
 
 class DummyController:
@@ -39,18 +43,18 @@ class DummyController:
     return 1
 
   def button_pressed(self, button: int):
-    logging.debug("button_pressed %s", button)
+    logger.debug("button_pressed %s", button)
     return False
 
   def button(self, button: int) -> bool:
-    logging.debug("button %s", button)
+    logger.debug("button %s", button)
     return False
 
   def read_gamepad(self, vibrate: int):
     pass
 
 def digitalWrite(led_id: int, value: bool):
-  logging.debug(f"Set led {led_id} to {value}")
+  logger.debug(f"Set led {led_id} to {value}")
 
 
 class Hexapod:
@@ -133,14 +137,6 @@ class Hexapod:
 
   mode_id_to_name: Dict[int,str] = {0: "Idle", 1: "Walk", 2: "Control x-y-z", 3: "Control y-p-r", 4: "One leg", 99: "Calibration"}
 
-  def constrain(self, x: float, a: float, b: float) -> float:
-    assert a <= b
-    if x < a:
-      return a
-    elif x > b:
-      return b
-    else:
-      return x
  
   #***********************************************************************
   # Initialization Routine
@@ -192,22 +188,29 @@ class Hexapod:
 
     self.mode: int = 0
     self.gait: int = 0
-    self.gait_speed = 0
-    self.reset_position = True
-    self.leg1_IK_control = True
-    self.leg6_IK_control = True
+    self.gait_speed: int = 0
+    self.reset_position: bool = True
+    self.leg1_IK_control: bool = True
+    self.leg6_IK_control: bool = True
 
-    self.gamepad_vibrate = 0
-    self.tick = 0
+    self.gamepad_vibrate: int = 0
+    self.tick: int = 0
 
-    self.batt_LEDs = 0
+    self.batt_LEDs: int = 0
 
     self.z_height_left = 0
     self.z_height_right = 0
 
+    self.n_cycles = 0
+
   #***********************************************************************
   # Main Program
   #***********************************************************************
+  def run(self):
+    while True:
+      self.loop()
+      time.sleep(20/1000)
+  
   def loop(self):
 
     #set up frame time
@@ -258,6 +261,8 @@ class Hexapod:
         self.one_leg_lift()
       elif self.mode == 99:
         self.set_all_90()
+      
+      self.n_cycles += 1
 
 
   #***********************************************************************
@@ -348,13 +353,13 @@ class Hexapod:
       #compute tibia angle
       phi_tibia = math.acos((pow(self.FEMUR_LENGTH,2) + pow(self.TIBIA_LENGTH, 2) - pow(L3,2))/(2*self.FEMUR_LENGTH*self.TIBIA_LENGTH))  # TODO check pow(self.TIBIA_LENGTH, 2????)
       theta_tibia = phi_tibia*self.RAD_TO_DEG - 23.0 + self.TIBIA_CAL[leg_num]
-      theta_tibia = self.constrain(theta_tibia,0.0,180.0)
+      theta_tibia = constrain(theta_tibia,0.0,180.0)
     
       #compute femur angle
       gamma_femur = math.atan2(Z,L0)
       phi_femur = math.acos((pow(self.FEMUR_LENGTH,2) + pow(L3,2) - pow(self.TIBIA_LENGTH,2))/(2*self.FEMUR_LENGTH*L3))
       theta_femur = (phi_femur + gamma_femur)*self.RAD_TO_DEG + 14.0 + 90.0 + self.FEMUR_CAL[leg_num]
-      theta_femur = self.constrain(theta_femur,0.0,180.0)  
+      theta_femur = constrain(theta_femur,0.0,180.0)  
 
       #compute coxa angle
       theta_coxa = math.atan2(X,Y)*self.RAD_TO_DEG + self.COXA_CAL[leg_num]
@@ -363,21 +368,21 @@ class Hexapod:
       if leg_num == 0:
         if self.leg1_IK_control == True:                       #flag for IK or manual control of leg
           theta_coxa = theta_coxa + 45.0                 #compensate for leg mounting
-          theta_coxa = self.constrain(theta_coxa,0.0,180.0)
+          theta_coxa = constrain(theta_coxa,0.0,180.0)
           self.coxa1_servo.write(int(theta_coxa)) 
           self.femur1_servo.write(int(theta_femur)) 
           self.tibia1_servo.write(int(theta_tibia)) 
         
       elif leg_num == 1:
         theta_coxa = theta_coxa + 90.0                 #compensate for leg mounting
-        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
+        theta_coxa = constrain(theta_coxa,0.0,180.0)
         self.coxa2_servo.write(int(theta_coxa)) 
         self.femur2_servo.write(int(theta_femur)) 
         self.tibia2_servo.write(int(theta_tibia)) 
         
       elif leg_num == 2:
         theta_coxa = theta_coxa + 135.0                 #compensate for leg mounting
-        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
+        theta_coxa = constrain(theta_coxa,0.0,180.0)
         self.coxa3_servo.write(int(theta_coxa)) 
         self.femur3_servo.write(int(theta_femur)) 
         self.tibia3_servo.write(int(theta_tibia)) 
@@ -387,7 +392,7 @@ class Hexapod:
           theta_coxa = theta_coxa + 225.0                # (need to use different
         else:                                              #  positive and negative offsets 
           theta_coxa = theta_coxa - 135.0                #  due to atan2 results above!)
-        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
+        theta_coxa = constrain(theta_coxa,0.0,180.0)
         self.coxa4_servo.write(int(theta_coxa)) 
         self.femur4_servo.write(int(theta_femur)) 
         self.tibia4_servo.write(int(theta_tibia)) 
@@ -397,7 +402,7 @@ class Hexapod:
           theta_coxa = theta_coxa + 270.0                # (need to use different
         else:                                              #  positive and negative offsets 
           theta_coxa = theta_coxa - 90.0                 #  due to atan2 results above!)
-        theta_coxa = self.constrain(theta_coxa,0.0,180.0)
+        theta_coxa = constrain(theta_coxa,0.0,180.0)
         self.coxa5_servo.write(int(theta_coxa)) 
         self.femur5_servo.write(int(theta_femur)) 
         self.tibia5_servo.write(int(theta_tibia)) 
@@ -408,7 +413,7 @@ class Hexapod:
             theta_coxa = theta_coxa + 315.0              # (need to use different
           else:                                            #  positive and negative offsets 
             theta_coxa = theta_coxa - 45.0               #  due to atan2 results above!)
-          theta_coxa = self.constrain(theta_coxa,0.0,180.0)
+          theta_coxa = constrain(theta_coxa,0.0,180.0)
           self.coxa6_servo.write(int(theta_coxa)) 
           self.femur6_servo.write(int(theta_femur)) 
           self.tibia6_servo.write(int(theta_tibia)) 
@@ -648,8 +653,8 @@ class Hexapod:
     #compute X and Y amplitude and constrain to prevent legs from crashing into each other
     self.amplitudeX = ((self.strideX + self.rotOffsetX)/2.0)
     self.amplitudeY = ((self.strideY + self.rotOffsetY)/2.0)
-    self.amplitudeX = self.constrain(self.amplitudeX,-50,50)
-    self.amplitudeY = self.constrain(self.amplitudeY,-50,50)
+    self.amplitudeX = constrain(self.amplitudeX,-50,50)
+    self.amplitudeY = constrain(self.amplitudeY,-50,50)
 
     #compute Z amplitude
     if abs(self.strideX + self.rotOffsetX) > abs(self.strideY + self.rotOffsetY):
@@ -691,7 +696,7 @@ class Hexapod:
         self.current_Y[leg_num] = self.HOME_Y[leg_num]
         self.current_Z[leg_num] = self.HOME_Z[leg_num]
 
-      logging.info("Offsets are saved")
+      logger.info("Offsets are saved")
       self.capture_offsets = False
       self.set_mode(0)
 
@@ -768,33 +773,31 @@ class Hexapod:
     #process right joystick left/right axis
     self.temp = self.controller.analog(self.AS_RX)
     self.temp = map(self.temp,0,255,45,-45)
-    logging.debug("!!!! coxa", self.leg1_coxa)
-    logging.debug("!!!! temp", self.temp)
-    self.coxa1_servo.write(self.constrain(int(self.leg1_coxa+self.temp),45,135))
+    self.coxa1_servo.write(constrain(int(self.leg1_coxa+self.temp),45,135))
 
     #process right joystick up/down axis
     self.temp = self.controller.analog(self.AS_RY)
     if self.temp < 117:                                #if joystick moved up
       self.temp = map(self.temp,116,0,0,24)                #move leg 1
-      self.femur1_servo.write(self.constrain(int(self.leg1_femur+self.temp),0,170))
-      self.tibia1_servo.write(self.constrain(int(self.leg1_tibia+4*self.temp),0,170))
+      self.femur1_servo.write(constrain(int(self.leg1_femur+self.temp),0,170))
+      self.tibia1_servo.write(constrain(int(self.leg1_tibia+4*self.temp),0,170))
     else:                                          #if joystick moved down
-      self.z_height_right = self.constrain(self.temp,140,255)   #set Z step height
+      self.z_height_right = constrain(self.temp,140,255)   #set Z step height
       self.z_height_right = map(self.z_height_right,140,255,1,8)
 
     #process left joystick left/right axis
     self.temp = self.controller.analog(self.AS_LX)
     self.temp = map(self.temp,0,255,45,-45)
-    self.coxa6_servo.write(self.constrain(int(self.leg6_coxa+self.temp),45,135))
+    self.coxa6_servo.write(constrain(int(self.leg6_coxa+self.temp),45,135))
 
     #process left joystick up/down axis
     self.temp = self.controller.analog(self.AS_LY)
     if self.temp < 117:                                #if joystick moved up
       self.temp = map(self.temp,116,0,0,24)                #move leg 6
-      self.femur6_servo.write(self.constrain(int(self.leg6_femur+self.temp),0,170))
-      self.tibia6_servo.write(self.constrain(int(self.leg6_tibia+4*self.temp),0,170))
+      self.femur6_servo.write(constrain(int(self.leg6_femur+self.temp),0,170))
+      self.tibia6_servo.write(constrain(int(self.leg6_tibia+4*self.temp),0,170))
     else:                                          #if joystick moved down
-      self.z_height_left = self.constrain(self.temp,140,255)    #set Z step height
+      self.z_height_left = constrain(self.temp,140,255)    #set Z step height
       self.z_height_left = map(self.z_height_left,140,255,1,8)
 
     #process z height adjustment
@@ -863,7 +866,7 @@ class Hexapod:
 
     # #remap battery voltage for display on the LEDs
     # #minimum = 10.2V, maximum (full) = 12.3V
-    # self.batt_LEDs = map(self.constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
+    # self.batt_LEDs = map(constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
     # if self.batt_LEDs > 3:
     #   self.LED_Bar(1,self.batt_LEDs) #display green if voltage >= 11.40V
     # else:
@@ -901,21 +904,18 @@ class Hexapod:
   #***********************************************************************
   def print_debug(self):
     #display elapsed frame time (ms) and battery voltage (V)
-    self.currentTime = datetime.datetime.now()
-    logging.debug(self.currentTime-self.previousTime)
-    logging.debug(",")
-    logging.debug(float(self.batt_voltage)/100.0) 
-    logging.debug("\n")
-
+    if self.n_cycles % 1000 == 0:
+      self.currentTime = datetime.datetime.now()
+      logger.debug("%s, %s",self.currentTime-self.previousTime,float(self.batt_voltage)/100.0)
 
   def set_mode(self, mode_id: int) -> None:
     if self.mode != mode_id:
-      logging.info("%s mode applied", self.mode_id_to_name.get(mode_id))
+      logger.info("%s mode applied", self.mode_id_to_name.get(mode_id))
       if mode_id == 1:
-        logging.info("%s gait applied", self.gait_id_to_name.get(self.gait))
+        logger.info("%s gait applied", self.gait_id_to_name.get(self.gait))
       self.mode = mode_id
     
   def set_gait(self, gait_id: int) -> None:
     if self.gait != gait_id:
-      logging.info("%s gait selected (but not applied ", self.gait_id_to_name.get(gait_id))
+      logger.info("%s gait selected (but not applied ", self.gait_id_to_name.get(gait_id))
       self.gait = gait_id

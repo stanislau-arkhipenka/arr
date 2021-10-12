@@ -8,7 +8,7 @@ from acp.hexapod import DummyServo
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
-        format="[%(levelname)s] %(message)s",
+        format="[%(levelname)s][%(name)s] %(message)s",
         handlers=[
         logging.StreamHandler()
         ]
