@@ -1,7 +1,7 @@
 #***********************************************************************
 # Hexapod Program
 # originally developed by Mark W
-# translated to python by Stanislau A
+# translated to python by Stanislau Arkhipenka
 #***********************************************************************
 
 #***********************************************************************
@@ -16,7 +16,7 @@
 import logging
 import math
 import datetime
-from typing import List
+from typing import List, Dict
 from common import map
 
 class DummyServo:
@@ -128,6 +128,10 @@ class Hexapod:
   
   AS_RX = 'rx'
   AS_RY = 'ry'
+
+  gait_id_to_name: Dict[int,str] = {0: "Tripod", 1: "Wave", 2: "Ripple", 3: "Tetrapod"}
+
+  mode_id_to_name: Dict[int,str] = {0: "Idle", 1: "Walk", 2: "Control x-y-z", 3: "Control y-p-r", 4: "One leg", 99: "Calibration"}
 
   def constrain(self, x: float, a: float, b: float) -> float:
     assert a <= b
@@ -261,20 +265,20 @@ class Hexapod:
   #***********************************************************************
   def process_gamepad(self):
     if self.controller.button_pressed(self.PAD_DOWN):    #stop & select gait 0
-      self.mode = 0
-      self.gait = 0
+      self.set_mode(0)
+      self.set_gait(0)
       self.reset_position = True
     if self.controller.button_pressed(self.PAD_LEFT):    #stop & select gait 1 
-      self.mode = 0
-      self.gait = 1
+      self.set_mode(0)
+      self.set_gait(1)
       self.reset_position = True
     if self.controller.button_pressed(self.PAD_UP):      #stop & select gait 2  
-      self.mode = 0
-      self.gait = 2
+      self.set_mode(0)
+      self.set_gait(2)
       self.reset_position = True
     if self.controller.button_pressed(self.PAD_RIGHT):   #stop & select gait 3
-      self.mode = 0
-      self.gait = 3
+      self.set_mode(0)
+      self.set_gait(3)
       self.reset_position = True
     if self.mode == 0:                           #display selected gait on LEDs if button held
       if self.batt_LEDs > 3:
@@ -290,20 +294,20 @@ class Hexapod:
       if self.controller.button(self.PAD_RIGHT):
         self.LED_Bar(self.gait_LED_color, 4)    #display gait 3 
     if self.controller.button_pressed(self.BUT_Y):    #select walk mode
-      self.mode = 1
+      self.set_mode(1)
       self.reset_position = True
     if self.controller.button(self.BUT_Y):           #vibrate controller if walk button held
       self.gamepad_vibrate = 64 
     else:
       self.gamepad_vibrate = 0
     if self.controller.button_pressed(self.BUT_X):      #control x-y-z with joysticks mode
-      self.mode = 2
+      self.set_mode(2)
       self.reset_position = True
     if self.controller.button_pressed(self.BUT_B):      #control y-p-r with joysticks mode
-      self.mode = 3
+      self.set_mode(3)
       self.reset_position = True
     if self.controller.button_pressed(self.BUT_A):       #one leg lift mode
-      self.mode = 4
+      self.set_mode(4)
       self.reset_position = True
     if self.controller.button_pressed(self.BUT_START):       #change self.gait speed
       if self.gait_speed == 0:
@@ -316,7 +320,7 @@ class Hexapod:
       else:
         self.LED_Bar(0,8)                    #use red LEDs for slow
     if self.controller.button_pressed(self.BUT_SELECT):      #set all servos to 90 degrees for calibration
-      self.mode = 99   
+      self.set_mode(99)
     if self.controller.button_pressed(self.BUT_TL) or self.controller.button_pressed(self.BUT_TR):
       #capture offsets in translate, rotate, and translate/rotate modes
       self.capture_offsets = True
@@ -687,10 +691,9 @@ class Hexapod:
         self.current_Y[leg_num] = self.HOME_Y[leg_num]
         self.current_Z[leg_num] = self.HOME_Z[leg_num]
 
-    #if offsets were commanded, exit current mode
-    if self.capture_offsets == True:
+      logging.info("Offsets are saved")
       self.capture_offsets = False
-      self.mode = 0
+      self.set_mode(0)
 
 
   #***********************************************************************
@@ -740,7 +743,7 @@ class Hexapod:
     #if offsets were commanded, exit current mode
     if self.capture_offsets == True:
       self.capture_offsets = False
-      self.mode = 0
+      self.set_mode(0)
 
 
   #***********************************************************************
@@ -903,3 +906,16 @@ class Hexapod:
     logging.debug(",")
     logging.debug(float(self.batt_voltage)/100.0) 
     logging.debug("\n")
+
+
+  def set_mode(self, mode_id: int) -> None:
+    if self.mode != mode_id:
+      logging.info("%s mode applied", self.mode_id_to_name.get(mode_id))
+      if mode_id == 1:
+        logging.info("%s gait applied", self.gait_id_to_name.get(self.gait))
+      self.mode = mode_id
+    
+  def set_gait(self, gait_id: int) -> None:
+    if self.gait != gait_id:
+      logging.info("%s gait selected (but not applied ", self.gait_id_to_name.get(gait_id))
+      self.gait = gait_id

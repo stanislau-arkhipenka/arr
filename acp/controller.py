@@ -5,7 +5,6 @@ import time
 from typing import Union, Dict, List
 import os, struct, array
 from fcntl import ioctl
-import datetime
 import threading
 from common import map
 
