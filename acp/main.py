@@ -7,10 +7,10 @@ from acp.hexapod import DummyServo
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="[%(levelname)s][%(name)s] %(message)s",
         handlers=[
         logging.StreamHandler()
         ]
     )
-    AcpRobot(debug_servo=True, debug_controller=False).run()
+    AcpRobot(debug_servo=False, debug_controller=False).run()

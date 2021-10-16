@@ -7,10 +7,8 @@ class Servo:
         self.channel = channel
 
     def write(self, value: int) -> None:
-        logger.debug(f"servo write {value}")
-        if value > 0xffff:
-            raise ValueError("Write value shoulbe be less %s" % 0xffff)
-        self.channel.duty_cycle = value
+        logger.debug("servo write %s", value)
+        self.channel.angle = value
 
     def read(self) -> int:
-        return self.channel.duty_cycle 
+        return self.channel.angle 
