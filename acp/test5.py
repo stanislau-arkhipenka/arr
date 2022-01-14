@@ -1,37 +1,28 @@
-import logging
-import sys
-import signal
-import board
+import time
+from board import SCL, SDA
 import busio
-from adafruit_motor import servo as ada_servo
-from adafruit_pca9685 import PCA9685
-from acp.hexapod import Hexapod
-from acp.servo import Servo
-from acp.controller import XboxOneController
-from common import set_disposition, rconf
-from typing import List
+from controller import XboxOneController
+from common import map
 
-class AcpRobot(Hexapod):
+
+# Import the PCA9685 module. Available in the bundle and here:
+#   https://github.com/adafruit/Adafruit_CircuitPython_PCA9685
+import board
+from adafruit_motor import servo as ada_servo
+from acp.servo import Servo
+from adafruit_pca9685 import PCA9685
+
+
+class aaa:
 
     PCA_FREQ = 50 # Servo control freq
 
-    def __init__(self, debug_servo: bool = False, debug_controller: bool = False):
-        super().__init__()
-        set_disposition()
-        if not debug_controller:
-            self.controller = XboxOneController()
-        if not debug_servo:
-            self._init_servo()
-        
-
-    def _init_servo(self):
+    def __init__(self) -> None:
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.pca1 = PCA9685(self.i2c, address=0x41)
         self.pca2 = PCA9685(self.i2c, address=0x40)
         self.pca1.frequency = self.PCA_FREQ
         self.pca2.frequency = self.PCA_FREQ
-
-
 
         self.coxa1_servo  = Servo(ada_servo.Servo(self.pca1.channels[0]))     #18 servos = Servo()
         self.femur1_servo = Servo(ada_servo.Servo(self.pca1.channels[1]), reverse=True)
@@ -73,14 +64,24 @@ class AcpRobot(Hexapod):
             self.tibia6_servo
             ]
 
-    def _loop_hook(self):
-        if rconf.sigint:
-            logging.info("CTRL+C. Terminating")
-            for servo in self.all_servos:
-                servo.angle = None
-            self.pca1.deinit()
-            self.pca2.deinit()
-            self.controller.terminate()
-            sys.exit(0)
-            
+if __name__ == "__main__":
+    i2c = busio.I2C(SCL, SDA)
+    pca1 = PCA9685(i2c, address=0x40)
+    pca1.frequency = 50
+    pca2 = PCA9685(i2c, address=0x41)
+    pca2.frequency = 50
 
+    #c = XboxOneController()
+
+    a = aaa()
+    s = 20
+    i = s 
+    while True:
+        time.sleep(0.01)
+        i += 1
+        for s in a.all_servos:
+            s.write(i)
+
+        print(i)
+        if i>179:
+            i = s

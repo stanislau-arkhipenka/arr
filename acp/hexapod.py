@@ -105,9 +105,9 @@ class Hexapod:
   BODY_Y = [  58.4, 90.8,   58.4,  -58.4,  -90.8, -58.4]
   BODY_Z = [   0.0,  0.0,    0.0,    0.0,    0.0,   0.0]
 
-  COXA_CAL  = [2, -1, -1, -3, -2, -3]                       #servo calibration constants
-  FEMUR_CAL = [4, -2,  0, -1,  0,  0]
-  TIBIA_CAL = [0, -3, -3, -2, -3, -1]
+  COXA_CAL  = [0, 0, 0, 0, 0, 0]                       #servo calibration constants
+  FEMUR_CAL = [0, 0, 0, 0, 0, 0]
+  TIBIA_CAL = [0, 0, 0, 0, 0, 0]
 
   BUT_A = 'a'
   BUT_B = 'b'
@@ -209,8 +209,12 @@ class Hexapod:
   def run(self):
     while True:
       self.loop()
-      time.sleep(20/1000)
+      self._loop_hook()
+      time.sleep(self.FRAME_TIME_MS/1000)
   
+  def _loop_hook(self) -> None:
+    pass
+
   def loop(self):
 
     #set up frame time

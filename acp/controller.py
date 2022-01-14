@@ -136,6 +136,8 @@ class XboxOneController:
 
         logger.info('%d axes found: %s' % (self.num_axes, ', '.join(self.axis_map)))
         logger.info('%d buttons found: %s' % (self.num_buttons, ', '.join(self.button_map)))
+
+        self.monitor_thread = threading.Thread(target=self._monitor_dev)
         self.monitor_dev()
 
     def await_controller(self):
@@ -151,11 +153,14 @@ class XboxOneController:
 
 
     def monitor_dev(self):
-        t = threading.Thread(target=self._monitor_dev)
-        t.start()
+        self._terminate_monitor: bool = False
+        self.monitor_thread.start()
+        
 
     def _monitor_dev(self, vibrate: bool = False) -> None:   # TODO vibrate not implemented
         while True:
+            if self._terminate_monitor:
+                return
             self.evbuf = self.jsdev.read(8)
             if self.evbuf:
                 time1, value, type, number = struct.unpack('IhBB', self.evbuf)
@@ -199,6 +204,11 @@ class XboxOneController:
         self.slow_button_old: Dict = self.slow_button_new.copy()
         self.slow_button_new: Dict = self.button_states.copy()
 
+
+    def terminate(self) -> None:
+        self._terminate_monitor = True
+        self.monitor_thread.join()
+        return
 
 
 if __name__ == "__main__":
