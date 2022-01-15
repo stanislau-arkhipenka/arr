@@ -15,8 +15,8 @@ class AcpRobot(Hexapod):
 
     PCA_FREQ = 50 # Servo control freq
 
-    def __init__(self, debug_servo: bool = False, debug_controller: bool = False):
-        super().__init__()
+    def __init__(self, config_file_path: str, debug_servo: bool = False, debug_controller: bool = False):
+        super().__init__(config_file_path)
         set_disposition()
         if not debug_controller:
             self.controller = XboxOneController()

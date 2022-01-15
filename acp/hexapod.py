@@ -13,10 +13,12 @@
 #  https:#www.robotshop.com/community/forum/t/inverse-kinematic-equations-for-lynxmotion-3dof-legs/21336
 #  http:#arduin0.blogspot.com/2012/01/inverse-kinematics-ik-implementation.html?utm_source=rb-community&utm_medium=forum&utm_campaign=inverse-kinematic-equations-for-lynxmotion-3dof-legs
 #***********************************************************************
+import os
 import time
 import logging
 import math
-import datetime
+import json
+import time
 from typing import List, Dict
 from common import map, constrain
 
@@ -95,6 +97,7 @@ class Hexapod:
   A12DEG = 209440           #12 degrees in radians x 1,000,000
   A30DEG = 523599           #30 degrees in radians x 1,000,000
 
+  SERVO_TIME_MS = 80
   FRAME_TIME_MS = 20         #frame time (20msec = 50Hz)
 
   HOME_X = [  82.0,   0.0, -82.0,  -82.0,    0.0,  82.0]  #coxa-to-toe home positions
@@ -133,21 +136,49 @@ class Hexapod:
   AS_RX = 'rx'
   AS_RY = 'ry'
 
-  gait_id_to_name: Dict[int,str] = {0: "Tripod", 1: "Wave", 2: "Ripple", 3: "Tetrapod"}
+  GAIT_TRIP = 0
+  GAIT_WAVE = 1
+  GAIT_RIPP = 2
+  GAIT_TETR = 3
+  GAIT_DEFAULT = GAIT_TRIP
 
-  mode_id_to_name: Dict[int,str] = {0: "Idle", 1: "Walk", 2: "Control x-y-z", 3: "Control y-p-r", 4: "One leg", 99: "Calibration"}
+  gait_id_to_name: Dict[int,str] = {
+    GAIT_TRIP: "Tripod", 
+    GAIT_WAVE: "Wave", 
+    GAIT_RIPP: "Ripple", 
+    GAIT_TETR: "Tetrapod"
+    }
+
+  MODE_IDLE = 0
+  MODE_WALK = 1
+  MODE_CXYZ = 2
+  MODE_CYPR = 3
+  MODE_OLEG = 4
+  MODE_CALI = 99
+
+  mode_id_to_name: Dict[int,str] = {
+    MODE_IDLE: "Idle", 
+    MODE_WALK: "Walk", 
+    MODE_CXYZ: "Control x-y-z", 
+    MODE_CYPR: "Control y-p-r", 
+    MODE_OLEG: "One leg", 
+    MODE_CALI: "Calibration"
+    }
 
  
   #***********************************************************************
   # Initialization Routine
   #***********************************************************************
-  def __init__(self):
+  def __init__(self, config_file_path: str):
     
+    self.config_file_path = config_file_path
+    self.reload_config()
+
     # Variable Declarations
     self.batt_voltage_array = []
     self.batt_voltage = 0
-    self.currentTime = datetime.datetime.now()
-    self.previousTime = datetime.datetime.now()
+    self.currentTime = self.get_current_time_ms()
+    self.previousTime = self.get_current_time_ms()
 
     self.offset_X: List[float] = [0] * 6
     self.offset_Y: List[float] = [0] * 6
@@ -186,8 +217,8 @@ class Hexapod:
     self.capture_offsets = False
     self.step_height_multiplier = 1
 
-    self.mode: int = 0
-    self.gait: int = 0
+    self.mode: int = self.MODE_IDLE
+    self.gait: int = self.GAIT_DEFAULT
     self.gait_speed: int = 0
     self.reset_position: bool = True
     self.leg1_IK_control: bool = True
@@ -218,8 +249,8 @@ class Hexapod:
   def loop(self):
 
     #set up frame time
-    self.currentTime = datetime.datetime.now()
-    if (self.currentTime - self.previousTime).microseconds / 1000 > self.FRAME_TIME_MS:
+    self.currentTime = self.get_current_time_ms()
+    if self.currentTime - self.previousTime > self.FRAME_TIME_MS:
       self.previousTime = self.currentTime
 
       #read controller and process inputs
@@ -235,12 +266,12 @@ class Hexapod:
         self.reset_position = False 
       
       #position legs using IK calculations - unless set all to 90 degrees mode
-      if self.mode < 99:
+      if self.mode != self.MODE_CALI:
         for leg_num in range(0,6):
           self.leg_IK(leg_num,self.current_X[leg_num]+self.offset_X[leg_num],self.current_Y[leg_num]+self.offset_Y[leg_num],self.current_Z[leg_num]+self.offset_Z[leg_num])       
 
       #reset leg lift first pass flags if needed
-      if self.mode != 4:
+      if self.mode != self.MODE_OLEG:
         self.leg1_IK_control = True 
         self.leg6_IK_control = True
 
@@ -248,7 +279,7 @@ class Hexapod:
       self.print_debug()                            #print debug data
 
       #process modes (mode 0 is default 'home idle' do-nothing mode)
-      if self.mode == 1:                             #walking mode
+      if self.mode == self.MODE_WALK:               #walking mode
         if self.gait == 0:
           self.tripod_gait()
         elif self.gait == 1:
@@ -263,7 +294,7 @@ class Hexapod:
         self.rotate_control()
       elif self.mode == 4:
         self.one_leg_lift()
-      elif self.mode == 99:
+      elif self.mode == self.MODE_CALI:
         self.set_all_90()
       
       self.n_cycles += 1
@@ -273,20 +304,20 @@ class Hexapod:
   # Process gamepad controller inputs
   #***********************************************************************
   def process_gamepad(self):
-    if self.controller.button_pressed(self.PAD_DOWN):    #stop & select gait 0
-      self.set_mode(0)
+    if self.controller.button_pressed(self.PAD_DOWN) and self.mode != self.MODE_CALI:    #stop & select gait 0
+      self.set_mode(self.MODE_IDLE)
       self.set_gait(0)
       self.reset_position = True
-    if self.controller.button_pressed(self.PAD_LEFT):    #stop & select gait 1 
-      self.set_mode(0)
+    if self.controller.button_pressed(self.PAD_LEFT) and self.mode != self.MODE_CALI:    #stop & select gait 1 
+      self.set_mode(self.MODE_IDLE)
       self.set_gait(1)
       self.reset_position = True
-    if self.controller.button_pressed(self.PAD_UP):      #stop & select gait 2  
-      self.set_mode(0)
+    if self.controller.button_pressed(self.PAD_UP) and self.mode != self.MODE_CALI:      #stop & select gait 2  
+      self.set_mode(self.MODE_IDLE)
       self.set_gait(2)
       self.reset_position = True
-    if self.controller.button_pressed(self.PAD_RIGHT):   #stop & select gait 3
-      self.set_mode(0)
+    if self.controller.button_pressed(self.PAD_RIGHT) and self.mode != self.MODE_CALI:   #stop & select gait 3
+      self.set_mode(self.MODE_IDLE)
       self.set_gait(3)
       self.reset_position = True
     if self.mode == 0:                           #display selected gait on LEDs if button held
@@ -303,20 +334,20 @@ class Hexapod:
       if self.controller.button(self.PAD_RIGHT):
         self.LED_Bar(self.gait_LED_color, 4)    #display gait 3 
     if self.controller.button_pressed(self.BUT_Y):    #select walk mode
-      self.set_mode(1)
+      self.set_mode(self.MODE_WALK)
       self.reset_position = True
     if self.controller.button(self.BUT_Y):           #vibrate controller if walk button held
       self.gamepad_vibrate = 64 
     else:
       self.gamepad_vibrate = 0
     if self.controller.button_pressed(self.BUT_X):      #control x-y-z with joysticks mode
-      self.set_mode(2)
+      self.set_mode(self.MODE_CXYZ)
       self.reset_position = True
     if self.controller.button_pressed(self.BUT_B):      #control y-p-r with joysticks mode
-      self.set_mode(3)
+      self.set_mode(self.MODE_CYPR)
       self.reset_position = True
     if self.controller.button_pressed(self.BUT_A):       #one leg lift mode
-      self.set_mode(4)
+      self.set_mode(self.MODE_OLEG)
       self.reset_position = True
     if self.controller.button_pressed(self.BUT_START):       #change self.gait speed
       if self.gait_speed == 0:
@@ -329,7 +360,11 @@ class Hexapod:
       else:
         self.LED_Bar(0,8)                    #use red LEDs for slow
     if self.controller.button_pressed(self.BUT_SELECT):      #set all servos to 90 degrees for calibration
-      self.set_mode(99)
+      if self.mode != self.MODE_CALI:
+        self.set_mode(self.MODE_CALI)
+      else:
+        self.set_mode(self.MODE_IDLE)
+        self.set_gait(self.GAIT_DEFAULT)
     if self.controller.button_pressed(self.BUT_TL) or self.controller.button_pressed(self.BUT_TR):
       #capture offsets in translate, rotate, and translate/rotate modes
       self.capture_offsets = True
@@ -436,7 +471,7 @@ class Hexapod:
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
       self.compute_strides(commandedX, commandedY, commandedR)
-      numTicks = round(self.duration / self.FRAME_TIME_MS / 2.0) #total ticks divided into the two cases
+      numTicks = round(self.duration / self.SERVO_TIME_MS / 2.0) #total ticks divided into the two cases
       for leg_num in range(0,6):
         self.compute_amplitudes(leg_num)
         if self.tripod_case[leg_num] == 1:                               #move foot forward (raise and lower)
@@ -471,7 +506,7 @@ class Hexapod:
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
       self.compute_strides(commandedX, commandedY, commandedR)
-      numTicks = round(self.duration / self.FRAME_TIME_MS / 6.0) #total ticks divided into the six cases
+      numTicks = round(self.duration / self.SERVO_TIME_MS / 6.0) #total ticks divided into the six cases
       for leg_num in range(0,6):
         self.compute_amplitudes(leg_num)
         if self.wave_case[leg_num] == 1:                               #move foot forward (raise and lower)
@@ -531,7 +566,7 @@ class Hexapod:
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
       self.compute_strides(commandedX, commandedY, commandedR)
-      numTicks = round(self.duration / self.FRAME_TIME_MS / 6.0) #total ticks divided into the six cases
+      numTicks = round(self.duration / self.SERVO_TIME_MS / 6.0) #total ticks divided into the six cases
       for leg_num in range(0,6):
         self.compute_amplitudes(leg_num)
         if self.ripple_case[leg_num] == 1:                               #move foot forward (raise)
@@ -592,7 +627,7 @@ class Hexapod:
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
       self.compute_strides(commandedX, commandedY, commandedR)
-      numTicks = round(self.duration / self.FRAME_TIME_MS / 3.0) #total ticks divided into the three cases
+      numTicks = round(self.duration / self.SERVO_TIME_MS / 3.0) #total ticks divided into the three cases
       for leg_num in range(0,6):
         self.compute_amplitudes(leg_num)
         if self.tetrapod_case[leg_num] == 1:                               #move foot forward (raise and lower)
@@ -702,7 +737,7 @@ class Hexapod:
 
       logger.info("Offsets are saved")
       self.capture_offsets = False
-      self.set_mode(0)
+      self.set_mode(self.MODE_IDLE)
 
 
   #***********************************************************************
@@ -752,7 +787,7 @@ class Hexapod:
     #if offsets were commanded, exit current mode
     if self.capture_offsets == True:
       self.capture_offsets = False
-      self.set_mode(0)
+      self.set_mode(self.MODE_IDLE)
 
 
   #***********************************************************************
@@ -909,7 +944,7 @@ class Hexapod:
   def print_debug(self):
     #display elapsed frame time (ms) and battery voltage (V)
     if self.n_cycles % 1000 == 0:
-      self.currentTime = datetime.datetime.now()
+      self.currentTime = self.get_current_time_ms()
       logger.debug("%s, %s",self.currentTime-self.previousTime,float(self.batt_voltage)/100.0)
 
   def set_mode(self, mode_id: int) -> None:
@@ -923,3 +958,30 @@ class Hexapod:
     if self.gait != gait_id:
       logger.info("%s gait selected (but not applied ", self.gait_id_to_name.get(gait_id))
       self.gait = gait_id
+
+
+  @staticmethod
+  def get_current_time_ms():
+    return round(time.time() * 1000)
+
+  def reload_config(self):
+    if not os.path.exists(self.config_file_path):
+      logger.warning("Config file not found. Wirting default values to %s", self.config_file_path)
+      self.write_config()
+
+    logger.info("Loading config from %s", self.config_file_path)
+    with open(self.config_file_path, 'rt') as f:
+      config = json.loads(f.read())
+      self.COXA_CAL = config["COXA_CAL"]
+      self.FEMUR_CAL = config["FEMUR_CAL"]
+      self.TIBIA_CAL = config["TIBIA_CAL"]
+
+
+  def write_config(self):
+    config = {
+        "COXA_CAL": self.COXA_CAL,
+        "FEMUR_CAL": self.FEMUR_CAL,
+        "TIBIA_CAL": self.TIBIA_CAL
+    }
+    with open(self.config_file_path, 'wt') as f:
+      f.write(json.dumps(config, indent=4))
