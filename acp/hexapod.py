@@ -18,7 +18,6 @@ import time
 import logging
 import math
 import json
-import time
 from typing import List, Dict
 from common import map, constrain
 
@@ -234,6 +233,9 @@ class Hexapod:
 
     self.n_cycles = 0
 
+    self.cal_pntr: int = 0
+    self.cal_inner_pntr: int = 0
+
   #***********************************************************************
   # Main Program
   #***********************************************************************
@@ -365,6 +367,8 @@ class Hexapod:
       else:
         self.set_mode(self.MODE_IDLE)
         self.set_gait(self.GAIT_DEFAULT)
+    if self.mode == self.MODE_CALI:
+      self.process_gamepad_calibration()
     if self.controller.button_pressed(self.BUT_TL) or self.controller.button_pressed(self.BUT_TR):
       #capture offsets in translate, rotate, and translate/rotate modes
       self.capture_offsets = True
@@ -376,6 +380,65 @@ class Hexapod:
       self.leg1_IK_control = True               #reset leg lift first pass flags
       self.leg6_IK_control = True
       self.step_height_multiplier = 1.0         #reset step height multiplier
+
+
+  def process_gamepad_calibration(self):
+    pressed = False
+    if self.controller.button_pressed(self.BUT_SELECT):
+      logger.info("coxa: %s", self.COXA_CAL)
+      logger.info("femur: %s", self.FEMUR_CAL)
+      logger.info("tibia: %s", self.TIBIA_CAL)
+      data, name, i = self.get_cal_pntr()
+      pressed = True
+    if self.controller.button_pressed(self.PAD_UP):
+      data, name, i = self.get_cal_pntr()
+      data[i] = data[i] + 1
+      pressed = True
+      self.write_config()
+    elif self.controller.button_pressed(self.PAD_DOWN):
+      data, name, i = self.get_cal_pntr()
+      data[i] = data[i] - 1
+      pressed = True
+      self.write_config()
+    elif self.controller.button_pressed(self.PAD_LEFT):
+      data, name, i = self.get_cal_pntr(move = -1)
+      pressed = True
+    elif self.controller.button_pressed(self.PAD_RIGHT):
+      data, name, i = self.get_cal_pntr(move = 1)
+      pressed = True
+    if pressed:
+      logger.info(f"{name}[{i}] = {data[i]}")
+
+
+  # I'm not proud about this functions
+  # It's just nesessary hacks for manipulating data
+  # which is structured in not very convinient way
+  # Ideally I need to refactor data structures (to use dicts)
+  # and all this junky code will go away
+  def get_cal_structure(self, move: int = 0):
+    self.cal_pntr += move
+    if self.cal_pntr > 2:
+      self.cal_pntr = 0
+    elif self.cal_pntr < 0:
+      self.cal_pntr = 2
+    if self.cal_pntr == 0:
+      return self.COXA_CAL, "coxa"
+    elif self.cal_pntr == 1:
+      return self.FEMUR_CAL, "femur"
+    elif self.cal_pntr == 2:
+      return self.TIBIA_CAL, "tibia"
+
+  def get_cal_pntr(self, move: int = 0):
+    self.cal_inner_pntr += move
+    if self.cal_inner_pntr > len(self.get_cal_structure()[0]):
+      data, name = self.get_cal_structure(move = 1)
+      self.cal_inner_pntr = 0
+    elif self.cal_inner_pntr < 0:
+      data, name = self.get_cal_structure(move = -1)
+      self.cal_inner_pntr = len(data) - 1
+    else:
+      data, name = self.get_cal_structure(move = 0)
+    return data, name, self.cal_inner_pntr
 
 
   #***********************************************************************
