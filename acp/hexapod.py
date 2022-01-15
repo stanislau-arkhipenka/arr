@@ -280,19 +280,19 @@ class Hexapod:
 
       #process modes (mode 0 is default 'home idle' do-nothing mode)
       if self.mode == self.MODE_WALK:               #walking mode
-        if self.gait == 0:
+        if self.gait == self.GAIT_TRIP:
           self.tripod_gait()
-        elif self.gait == 1:
+        elif self.gait == self.GAIT_WAVE:
           self.wave_gait()
-        elif self.gait == 2:
+        elif self.gait == self.GAIT_RIPP:
           self.ripple_gait()
-        elif self.gait == 3:
+        elif self.gait == self.GAIT_TETR:
           self.tetrapod_gait()
-      elif self.mode == 2:
+      elif self.mode == self.MODE_CXYZ:
         self.translate_control()
-      elif self.mode == 3:
+      elif self.mode == self.MODE_CYPR:
         self.rotate_control()
-      elif self.mode == 4:
+      elif self.mode == self.MODE_OLEG:
         self.one_leg_lift()
       elif self.mode == self.MODE_CALI:
         self.set_all_90()
@@ -306,21 +306,21 @@ class Hexapod:
   def process_gamepad(self):
     if self.controller.button_pressed(self.PAD_DOWN) and self.mode != self.MODE_CALI:    #stop & select gait 0
       self.set_mode(self.MODE_IDLE)
-      self.set_gait(0)
+      self.set_gait(self.GAIT_TRIP)
       self.reset_position = True
     if self.controller.button_pressed(self.PAD_LEFT) and self.mode != self.MODE_CALI:    #stop & select gait 1 
       self.set_mode(self.MODE_IDLE)
-      self.set_gait(1)
+      self.set_gait(self.GAIT_WAVE)
       self.reset_position = True
     if self.controller.button_pressed(self.PAD_UP) and self.mode != self.MODE_CALI:      #stop & select gait 2  
       self.set_mode(self.MODE_IDLE)
-      self.set_gait(2)
+      self.set_gait(self.GAIT_RIPP)
       self.reset_position = True
     if self.controller.button_pressed(self.PAD_RIGHT) and self.mode != self.MODE_CALI:   #stop & select gait 3
       self.set_mode(self.MODE_IDLE)
-      self.set_gait(3)
+      self.set_gait(self.GAIT_TETR)
       self.reset_position = True
-    if self.mode == 0:                           #display selected gait on LEDs if button held
+    if self.mode == self.MODE_IDLE:                           #display selected gait on LEDs if button held
       if self.batt_LEDs > 3:
         self.gait_LED_color=0   #display gait using red LEDs if battery strong
       else:
