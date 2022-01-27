@@ -96,8 +96,8 @@ class Hexapod:
   A12DEG = 209440           #12 degrees in radians x 1,000,000
   A30DEG = 523599           #30 degrees in radians x 1,000,000
 
-  SERVO_TIME_MS = 80
-  FRAME_TIME_MS = 20         #frame time (20msec = 50Hz)
+  SERVO_TIME_MS = 100
+  FRAME_TIME_MS = 10         #frame time (20msec = 50Hz)
 
   HOME_X = [  82.0,   0.0, -82.0,  -82.0,    0.0,  82.0]  #coxa-to-toe home positions
   HOME_Y = [  82.0, 116.0,  82.0,  -82.0, -116.0, -82.0]
@@ -430,7 +430,7 @@ class Hexapod:
 
   def get_cal_pntr(self, move: int = 0):
     self.cal_inner_pntr += move
-    if self.cal_inner_pntr > len(self.get_cal_structure()[0]):
+    if self.cal_inner_pntr >= len(self.get_cal_structure()[0]):
       data, name = self.get_cal_structure(move = 1)
       self.cal_inner_pntr = 0
     elif self.cal_inner_pntr < 0:
