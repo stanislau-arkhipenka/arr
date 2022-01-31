@@ -118,7 +118,7 @@ class Hexapod:
   BUT_SELECT = 'select'
   BUT_START = 'start'
   BUT_THUMBL = 'thumbl'
-  BUT_THUMBL = 'thumbr'
+  BUT_THUMBR = 'thumbr'
   BUT_TL = 'tl'
   BUT_TR = 'tr'
   BUT_L2 = 'l2'
@@ -1019,7 +1019,7 @@ class Hexapod:
     
   def set_gait(self, gait_id: int) -> None:
     if self.gait != gait_id:
-      logger.info("%s gait selected (but not applied ", self.gait_id_to_name.get(gait_id))
+      logger.info("%s gait selected (but not applied)", self.gait_id_to_name.get(gait_id))
       self.gait = gait_id
 
 

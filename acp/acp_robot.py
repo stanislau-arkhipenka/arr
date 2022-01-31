@@ -8,6 +8,7 @@ from adafruit_pca9685 import PCA9685
 from acp.hexapod import Hexapod
 from acp.servo import Servo
 from acp.controller import XboxOneController
+from acp.led import Led
 from common import set_disposition, rconf
 from typing import List
 
@@ -22,6 +23,7 @@ class AcpRobot(Hexapod):
             self.controller = XboxOneController()
         if not debug_servo:
             self._init_servo()
+        self.led1 = Led(17)
         
 
     def _init_servo(self):
@@ -84,3 +86,8 @@ class AcpRobot(Hexapod):
             sys.exit(0)
             
 
+
+    def process_gamepad(self):
+        super().process_gamepad()
+        if self.controller.button_pressed(self.BUT_THUMBR):
+            self.led1.change()

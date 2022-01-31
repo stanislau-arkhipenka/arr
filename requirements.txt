@@ -2,3 +2,4 @@ adafruit-circuitpython-pca9685
 adafruit-circuitpython-servokit
 pygame
 click
+RPi.GPIO
