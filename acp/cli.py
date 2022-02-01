@@ -10,7 +10,7 @@ from typing import List
 
 @click.group()
 def cli() -> None:
-    print("Hello")
+    pass
 
 
 @cli.command()
