@@ -9,10 +9,16 @@ from acp.hexapod import Hexapod
 from acp.servo import Servo
 from acp.controller import XboxOneController
 from acp.led import Led
-from common import set_disposition, rconf
+from common import set_disposition, rconf, map
 from typing import List
 
+
+logger = logging.getLogger(__name__)
+
 class AcpRobot(Hexapod):
+
+    HEAD_TILT_CAL = [70, 125] # min, max
+    HEAD_ROTATE_CAL = [107, 0] # min, max
 
     PCA_FREQ = 50 # Servo control freq
 
@@ -24,6 +30,7 @@ class AcpRobot(Hexapod):
         if not debug_servo:
             self._init_servo()
         self.led1 = Led(17)
+        self.all_servos = []
         
 
     def _init_servo(self):
@@ -35,24 +42,28 @@ class AcpRobot(Hexapod):
 
 
 
-        self.coxa1_servo  = Servo(ada_servo.Servo(self.pca1.channels[0]))     #18 servos = Servo()
-        self.femur1_servo = Servo(ada_servo.Servo(self.pca1.channels[1]), reverse=True)
-        self.tibia1_servo = Servo(ada_servo.Servo(self.pca1.channels[2]), reverse=True)
+        self.coxa1_servo  = Servo(ada_servo.Servo(self.pca1.channels[6]))    
+        self.femur1_servo = Servo(ada_servo.Servo(self.pca1.channels[7]), reverse=True)
+        self.tibia1_servo = Servo(ada_servo.Servo(self.pca1.channels[8]), reverse=True)
         self.coxa2_servo  = Servo(ada_servo.Servo(self.pca1.channels[3]))
         self.femur2_servo = Servo(ada_servo.Servo(self.pca1.channels[4]), reverse=True)
         self.tibia2_servo = Servo(ada_servo.Servo(self.pca1.channels[5]), reverse=True)
-        self.coxa3_servo  = Servo(ada_servo.Servo(self.pca1.channels[6]))
-        self.femur3_servo = Servo(ada_servo.Servo(self.pca1.channels[7]), reverse=True)
-        self.tibia3_servo = Servo(ada_servo.Servo(self.pca1.channels[8]), reverse=True)
-        self.coxa4_servo  = Servo(ada_servo.Servo(self.pca2.channels[0]))
-        self.femur4_servo = Servo(ada_servo.Servo(self.pca2.channels[1]))
-        self.tibia4_servo = Servo(ada_servo.Servo(self.pca2.channels[2]))
+        self.coxa3_servo  = Servo(ada_servo.Servo(self.pca1.channels[0]))
+        self.femur3_servo = Servo(ada_servo.Servo(self.pca1.channels[1]), reverse=True)
+        self.tibia3_servo = Servo(ada_servo.Servo(self.pca1.channels[2]), reverse=True)
+        self.coxa4_servo  = Servo(ada_servo.Servo(self.pca2.channels[6]))
+        self.femur4_servo = Servo(ada_servo.Servo(self.pca2.channels[7]))
+        self.tibia4_servo = Servo(ada_servo.Servo(self.pca2.channels[8]))
         self.coxa5_servo  = Servo(ada_servo.Servo(self.pca2.channels[3]))
         self.femur5_servo = Servo(ada_servo.Servo(self.pca2.channels[4]))
         self.tibia5_servo = Servo(ada_servo.Servo(self.pca2.channels[5]))
-        self.coxa6_servo  = Servo(ada_servo.Servo(self.pca2.channels[6]))
-        self.femur6_servo = Servo(ada_servo.Servo(self.pca2.channels[7]))
-        self.tibia6_servo = Servo(ada_servo.Servo(self.pca2.channels[8]))
+        self.coxa6_servo  = Servo(ada_servo.Servo(self.pca2.channels[0]))
+        self.femur6_servo = Servo(ada_servo.Servo(self.pca2.channels[1]))
+        self.tibia6_servo = Servo(ada_servo.Servo(self.pca2.channels[2]))
+
+        self.head_tilt = Servo(ada_servo.Servo(self.pca2.channels[13]), reverse=True)
+        self.head_rotate = Servo(ada_servo.Servo(self.pca2.channels[12]))
+        
 
         self.all_servos: List[Servo] = [
             self.coxa1_servo, 
@@ -72,22 +83,42 @@ class AcpRobot(Hexapod):
             self.tibia5_servo,
             self.coxa6_servo,
             self.femur6_servo,
-            self.tibia6_servo
+            self.tibia6_servo,
+            self.head_tilt,
+            self.head_rotate
             ]
 
-    def _loop_hook(self):
+    
+    def loop(self):
         if rconf.sigint:
-            logging.info("CTRL+C. Terminating")
+            logger.info("CTRL+C. Terminating")
             for servo in self.all_servos:
                 servo.angle = None
             self.pca1.deinit()
             self.pca2.deinit()
             self.controller.terminate()
             sys.exit(0)
-            
+
+        super().loop()
+
+        if self.mode == self.MODE_WALK:
+            self.control_head()
 
 
     def process_gamepad(self):
         super().process_gamepad()
         if self.controller.button_pressed(self.BUT_THUMBR):
             self.led1.change()
+            logger.info("Changing lights")
+    
+    def control_head(self):
+        commanded_head_tilt = int(map(self.controller.analog(self.AS_LY), 0, 255, self.HEAD_TILT_CAL[0], self.HEAD_TILT_CAL[1]))
+        commanded_head_rotate = int(map(self.controller.analog(self.AS_LX), 0, 255, self.HEAD_ROTATE_CAL[0], self.HEAD_ROTATE_CAL[1]))
+        self.head_tilt.write(commanded_head_tilt)
+        self.head_rotate.write(commanded_head_rotate)
+
+    def default_head(self):
+        commanded_head_tilt = int(abs(self.HEAD_TILT_CAL[1] - self.HEAD_TILT_CAL[0]))
+        commanded_head_rotate = int(abs(self.HEAD_ROTATE_CAL[1] - self.HEAD_ROTATE_CAL[0]))
+        self.head_tilt.write(commanded_head_tilt)
+        self.head_rotate.write(commanded_head_rotate)

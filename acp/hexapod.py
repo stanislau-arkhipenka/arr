@@ -135,6 +135,9 @@ class Hexapod:
   AS_RX = 'rx'
   AS_RY = 'ry'
 
+  THROTTLE_L = "throttle_l"
+  THROTTLE_R = "throttle_r"
+
   GAIT_TRIP = 0
   GAIT_WAVE = 1
   GAIT_RIPP = 2
@@ -242,11 +245,7 @@ class Hexapod:
   def run(self):
     while True:
       self.loop()
-      self._loop_hook()
       time.sleep(self.FRAME_TIME_MS/1000)
-  
-  def _loop_hook(self) -> None:
-    pass
 
   def loop(self):
 
@@ -527,9 +526,11 @@ class Hexapod:
   #***********************************************************************
   def tripod_gait(self):
     #read commanded values from controller
-    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127)
-    commandedY = map(self.controller.analog(self.AS_RX),0,255,-127,127)
-    commandedR = map(self.controller.analog(self.AS_LX),0,255,127,-127)
+    val_x = self.controller.analog(self.THROTTLE_R) - self.controller.analog(self.THROTTLE_L)
+    commandedY = map(val_x, -255, 255, 127, -127)
+    
+    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127) 
+    commandedR = map(self.controller.analog(self.AS_RX),0,255,127,-127)
       
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -562,9 +563,11 @@ class Hexapod:
   #***********************************************************************
   def wave_gait(self):
     #read commanded values from controller
-    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127)
-    commandedY = map(self.controller.analog(self.AS_RX),0,255,-127,127)
-    commandedR = map(self.controller.analog(self.AS_LX),0,255,127,-127)
+    val_x = self.controller.analog(self.THROTTLE_R) - self.controller.analog(self.THROTTLE_L)
+    commandedY = map(val_x, -255, 255, 127, -127)
+    
+    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127) 
+    commandedR = map(self.controller.analog(self.AS_RX),0,255,127,-127)
 
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -622,9 +625,11 @@ class Hexapod:
   #***********************************************************************
   def ripple_gait(self):
     #read commanded values from controller
-    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127)
-    commandedY = map(self.controller.analog(self.AS_RX),0,255,-127,127)
-    commandedR = map(self.controller.analog(self.AS_LX),0,255,127,-127)
+    val_x = self.controller.analog(self.THROTTLE_R) - self.controller.analog(self.THROTTLE_L)
+    commandedY = map(val_x, -255, 255, 127, -127)
+    
+    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127) 
+    commandedR = map(self.controller.analog(self.AS_RX),0,255,127,-127)
 
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
@@ -683,9 +688,11 @@ class Hexapod:
   #***********************************************************************
   def tetrapod_gait(self):
     #read commanded values from controller
-    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127)
-    commandedY = map(self.controller.analog(self.AS_RX),0,255,-127,127)
-    commandedR = map(self.controller.analog(self.AS_LX),0,255,127,-127)
+    val_x = self.controller.analog(self.THROTTLE_R) - self.controller.analog(self.THROTTLE_L)
+    commandedY = map(val_x, -255, 255, 127, -127)
+    
+    commandedX = map(self.controller.analog(self.AS_RY),0,255,127,-127) 
+    commandedR = map(self.controller.analog(self.AS_RX),0,255,127,-127)
 
     #if commands more than deadband then process
     if abs(commandedX) > 15 or abs(commandedY) > 15 or abs(commandedR) > 15 or self.tick>0:
