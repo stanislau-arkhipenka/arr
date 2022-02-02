@@ -103,6 +103,8 @@ class AcpRobot(Hexapod):
 
         if self.mode == self.MODE_WALK:
             self.control_head()
+        else:
+            self.default_head()
 
 
     def process_gamepad(self):
@@ -118,7 +120,7 @@ class AcpRobot(Hexapod):
         self.head_rotate.write(commanded_head_rotate)
 
     def default_head(self):
-        commanded_head_tilt = int(abs(self.HEAD_TILT_CAL[1] - self.HEAD_TILT_CAL[0]))
-        commanded_head_rotate = int(abs(self.HEAD_ROTATE_CAL[1] - self.HEAD_ROTATE_CAL[0]))
+        commanded_head_tilt = int(map(127, 0, 255, self.HEAD_TILT_CAL[0], self.HEAD_TILT_CAL[1]))
+        commanded_head_rotate = int(map(127, 0, 255, self.HEAD_ROTATE_CAL[0], self.HEAD_ROTATE_CAL[1]))
         self.head_tilt.write(commanded_head_tilt)
         self.head_rotate.write(commanded_head_rotate)
