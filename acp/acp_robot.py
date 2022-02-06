@@ -5,7 +5,7 @@ import board
 import busio
 from adafruit_motor import servo as ada_servo
 from adafruit_pca9685 import PCA9685
-from acp.hexapod import Hexapod
+from acp.hexapod import DummyServo, Hexapod
 from acp.servo import Servo
 from acp.controller import XboxOneController
 from acp.led import Led
@@ -25,11 +25,17 @@ class AcpRobot(Hexapod):
     def __init__(self, config_file_path: str, debug_servo: bool = False, debug_controller: bool = False):
         super().__init__(config_file_path)
         set_disposition()
+        self.debug_servo = debug_servo
+        self.debug_controller = debug_controller
         if not debug_controller:
             self.controller = XboxOneController()
         if not debug_servo:
             self._init_servo()
+        else:
+            self.head_tilt = DummyServo()
+            self.head_rotate = DummyServo()
         self.led1 = Led(17)
+        self.led2 = Led(18)
         self.all_servos = []
         
 
@@ -92,10 +98,13 @@ class AcpRobot(Hexapod):
     def loop(self):
         if rconf.sigint:
             logger.info("CTRL+C. Terminating")
-            for servo in self.all_servos:
-                servo.angle = None
-            self.pca1.deinit()
-            self.pca2.deinit()
+            self.led1.off()
+            self.led2.off()
+            if not self.debug_servo:
+                for servo in self.all_servos:
+                    servo.angle = None
+                self.pca1.deinit()
+                self.pca2.deinit()
             self.controller.terminate()
             sys.exit(0)
 
@@ -112,6 +121,10 @@ class AcpRobot(Hexapod):
         if self.controller.button_pressed(self.BUT_THUMBR):
             self.led1.change()
             logger.info("Changing lights")
+        if self.controller.button_pressed(self.BUT_THUMBL):
+            self.led2.change()
+            logger.info("Changing main light")
+
     
     def control_head(self):
         commanded_head_tilt = int(map(self.controller.analog(self.AS_LY), 0, 255, self.HEAD_TILT_CAL[0], self.HEAD_TILT_CAL[1]))

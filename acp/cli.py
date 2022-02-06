@@ -20,7 +20,7 @@ def cli() -> None:
 def set(bus: int, channel: int, value: int) -> None:
     my_servo = servo.Servo(busses[bus].channels[channel])
     my_servo.angle = value
-    
+
 
 
 if __name__ == "__main__":
