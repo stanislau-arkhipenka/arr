@@ -54,8 +54,6 @@ class DummyController:
   def read_gamepad(self, vibrate: int):
     pass
 
-def digitalWrite(led_id: int, value: bool):
-  logger.debug(f"Set led {led_id} to {value}")
 
 
 class Hexapod:
@@ -69,23 +67,6 @@ class Hexapod:
 
   RUMBLE = True
   PRESSURES = False
-
-  RED_LED1   = 22            #LED port definitions
-  GREEN_LED1 = 24
-  RED_LED2   = 26
-  GREEN_LED2 = 28
-  RED_LED3   = 30
-  GREEN_LED3 = 32
-  RED_LED4   = 34
-  GREEN_LED4 = 36
-  RED_LED5   = 38
-  GREEN_LED5 = 40
-  RED_LED6   = 42
-  GREEN_LED6 = 44
-  RED_LED7   = 46
-  GREEN_LED7 = 48
-  RED_LED8   = 50
-  GREEN_LED8 = 52
 
   COXA_LENGTH = 51           #leg part lengths
   FEMUR_LENGTH = 65
@@ -229,8 +210,6 @@ class Hexapod:
     self.gamepad_vibrate: int = 0
     self.tick: int = 0
 
-    self.batt_LEDs: int = 0
-
     self.z_height_left = 0
     self.z_height_right = 0
 
@@ -276,7 +255,6 @@ class Hexapod:
         self.leg1_IK_control = True 
         self.leg6_IK_control = True
 
-      self.battery_monitor()                        #battery monitor and output to LEDs
       self.print_debug()                            #print debug data
 
       #process modes (mode 0 is default 'home idle' do-nothing mode)
@@ -321,19 +299,6 @@ class Hexapod:
       self.set_mode(self.MODE_IDLE)
       self.set_gait(self.GAIT_TETR)
       self.reset_position = True
-    if self.mode == self.MODE_IDLE:                           #display selected gait on LEDs if button held
-      if self.batt_LEDs > 3:
-        self.gait_LED_color=0   #display gait using red LEDs if battery strong
-      else:
-        self.gait_LED_color=1                #display gait using green LEDs if battery weak
-      if self.controller.button(self.PAD_DOWN):
-        self.LED_Bar(self.gait_LED_color, 1)    #display gait 0 
-      if self.controller.button(self.PAD_LEFT):
-        self.LED_Bar(self.gait_LED_color, 2)    #display gait 1 
-      if self.controller.button(self.PAD_UP):
-        self.LED_Bar(self.gait_LED_color, 3)    #display gait 2
-      if self.controller.button(self.PAD_RIGHT):
-        self.LED_Bar(self.gait_LED_color, 4)    #display gait 3 
     if self.controller.button_pressed(self.BUT_Y):    #select walk mode
       self.set_mode(self.MODE_WALK)
       self.reset_position = True
@@ -355,11 +320,6 @@ class Hexapod:
         self.gait_speed = 1
       else:
         self.gait_speed = 0
-    if self.controller.button(self.BUT_START):              #display gait speed on LEDs if button held
-      if self.gait_speed == 0:
-        self.LED_Bar(1,8)     #use green LEDs for fast
-      else:
-        self.LED_Bar(0,8)                    #use red LEDs for slow
     if self.controller.button_pressed(self.BUT_SELECT):      #set all servos to 90 degrees for calibration
       if self.mode != self.MODE_CALI:
         self.set_mode(self.MODE_CALI)
@@ -912,11 +872,6 @@ class Hexapod:
     #process z height adjustment
     if self.z_height_left>self.z_height_right: 
       self.z_height_right = self.z_height_left             #use max left or right value
-    if self.batt_LEDs > 3:
-      z_height_LED_color=0       #use red LEDs if battery strong
-    else:
-      z_height_LED_color=1       #use green LEDs if battery weak
-    self.LED_Bar(z_height_LED_color,int(self.z_height_right))   #display Z height 
     if self.capture_offsets == True:                   #lock in Z height if commanded
       self.step_height_multiplier = 1.0 + ((self.z_height_right - 1.0) / 3.0)
       self.capture_offsets = False
@@ -953,59 +908,6 @@ class Hexapod:
     self.femur6_servo.write(90+self.FEMUR_CAL[5]) 
     self.tibia6_servo.write(90+self.TIBIA_CAL[5])
 
-
-  #***********************************************************************
-  # Battery monitor routine
-  # Note: my hexapod uses a 3S LiPo battery
-  # (fully charged = 12.6V, nominal = 11.4V, discharged = 10.2V)
-  #***********************************************************************
-  def battery_monitor(self):
-    pass # TODO uncomment and make it work later
-    # #update voltage sum (remove oldest value and insert new value into array)
-    # self.batt_voltage_sum = self.batt_voltage_sum - self.batt_voltage_array[self.batt_voltage_index]
-    # #scale voltage reading to 0 to 14.97V (slight recalibration due to resistor tolerances)
-    # self.batt_voltage_array[self.batt_voltage_index] = map(analogRead(BATT_VOLTAGE),0,1023,0,1497)
-    # self.batt_voltage_sum = self.batt_voltage_sum + self.batt_voltage_array[self.batt_voltage_index]
-    # self.batt_voltage_index = self.batt_voltage_index + 1
-    # if self.batt_voltage_index > 49:
-    #   self.batt_voltage_index = 0
-
-    # #compute average battery voltage over the 50 samples
-    # self.batt_voltage = self.batt_voltage_sum / 50
-
-    # #remap battery voltage for display on the LEDs
-    # #minimum = 10.2V, maximum (full) = 12.3V
-    # self.batt_LEDs = map(constrain(self.batt_voltage,1020,1230),1020,1230,1,8)  
-    # if self.batt_LEDs > 3:
-    #   self.LED_Bar(1,self.batt_LEDs) #display green if voltage >= 11.40V
-    # else:
-    #   self.LED_Bar(0,self.batt_LEDs)              #display red if voltage < 11.40V
-
-
-  #***********************************************************************
-  # LED Bar Graph Routine
-  # Note: 8 dual-color red/green LEDs in a row
-  # LED_color: 0=Red, 1=Green
-  # LED_count: 0 to 8
-  #***********************************************************************
-  def LED_Bar(self, LED_color: int, LED_count: int):
-    #display a red bar
-    if LED_color == 0:
-      for i in range(0,LED_count):
-        digitalWrite((self.RED_LED1+(4*i)),True)
-        digitalWrite((self.GREEN_LED1+(4*i)),False)
-      for i in range(LED_count, 8):
-        digitalWrite((self.RED_LED1+(4*i)),False)
-        digitalWrite((self.GREEN_LED1+(4*i)),False)
-    
-    #display a green bar
-    else:
-      for i in range(0, LED_count):
-        digitalWrite((self.GREEN_LED1+(4*i)),True)
-        digitalWrite((self.RED_LED1+(4*i)),False)
-      for i in range(LED_count, 8):
-        digitalWrite((self.GREEN_LED1+(4*i)),False)
-        digitalWrite((self.RED_LED1+(4*i)),False)
 
 
   #***********************************************************************
