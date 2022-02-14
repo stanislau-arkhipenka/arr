@@ -1,5 +1,8 @@
-import RPi.GPIO as GPIO
-
+try:
+    import RPi.GPIO as GPIO
+except RuntimeError as e:
+    if not str(e) == "This module can only be run on a Raspberry Pi!":
+        raise
 
 class Led:
 
