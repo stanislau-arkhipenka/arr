@@ -154,6 +154,12 @@ class Hexapod:
   #***********************************************************************
   def __init__(self, config_file_path: str):
     
+    self.cal_values = {
+      "coxa": self.COXA_CAL,
+      "femur": self.FEMUR_CAL,
+      "tibia": self.TIBIA_CAL
+    }
+
     self.config_file_path = config_file_path
     self.reload_config()
 
@@ -944,6 +950,11 @@ class Hexapod:
     logger.info("Loading config from %s", self.config_file_path)
     with open(self.config_file_path, 'rt') as f:
       config = json.loads(f.read())
+      for key, values in config.items():
+        if key in self.cal_values:
+          for k, v in enumerate(values):
+            if k< len(self.cal_values[k]):
+              self.cal_values[k] = v
       self.COXA_CAL = config["COXA_CAL"]
       self.FEMUR_CAL = config["FEMUR_CAL"]
       self.TIBIA_CAL = config["TIBIA_CAL"]
