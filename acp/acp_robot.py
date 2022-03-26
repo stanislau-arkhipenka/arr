@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class AcpRobot(Hexapod):
 
-    HEAD_TILT_CAL = [70, 125] # min, max
+    HEAD_TILT_CAL = [50, 120] # min, max
     HEAD_ROTATE_CAL = [107, 0] # min, max
 
     PCA_FREQ = 50 # Servo control freq
