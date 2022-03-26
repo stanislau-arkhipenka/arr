@@ -1,0 +1,20 @@
+
+[Unit]
+Description=Hexapod
+Wants=network-online.target
+After=network-online.target
+After=bluetooth.target
+
+[Service]
+WorkingDirectory=/opt/arr/acp/
+
+User=MY_USER
+Group=MY_USER
+
+ExecStart=/opt/arr/.venv/bin/python3 /opt/arr/acp/main.py
+
+# Let systemd restart this service always
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
