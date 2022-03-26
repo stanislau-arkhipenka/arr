@@ -1,17 +1,21 @@
 import logging
 import sys
 import signal
-import board
 import busio
 from adafruit_motor import servo as ada_servo
 from adafruit_pca9685 import PCA9685
-from acp.hexapod import DummyServo, Hexapod
+from acp.hexapod import Hexapod
 from acp.servo import Servo
 from acp.controller import XboxOneController
 from acp.led import Led
 from common import set_disposition, rconf, map
 from typing import List
+from dummy import DummyServo, DummyLed
 
+try:
+    import board
+except NotImplementedError:
+    board = object()        
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,10 @@ class AcpRobot(Hexapod):
 
     PCA_FREQ = 50 # Servo control freq
 
-    def __init__(self, config_file_path: str, debug_servo: bool = False, debug_controller: bool = False):
+    def __init__(self, config_file_path: str, 
+            debug_servo: bool = False, 
+            debug_controller: bool = False,
+            debug_led: bool = False):
         super().__init__(config_file_path)
         set_disposition()
         self.debug_servo = debug_servo
@@ -34,8 +41,12 @@ class AcpRobot(Hexapod):
         else:
             self.head_tilt = DummyServo()
             self.head_rotate = DummyServo()
-        self.led1 = Led(17)
-        self.led2 = Led(18)
+        if not debug_led:
+            self.led1 = Led(17)
+            self.led2 = Led(18)
+        else:
+            self.led1 = DummyLed(1)
+            self.led2 = DummyLed(2)
         self.all_servos = []
         
 
