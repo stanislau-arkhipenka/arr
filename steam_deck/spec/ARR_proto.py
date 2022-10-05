@@ -22,7 +22,7 @@ class Iface(object):
     def ping(self):
         pass
 
-    def analog(self, id, value):
+    def axis(self, id, value):
         """
         Parameters:
          - id
@@ -85,18 +85,18 @@ class Client(Iface):
             return result.success
         raise TApplicationException(TApplicationException.MISSING_RESULT, "ping failed: unknown result")
 
-    def analog(self, id, value):
+    def axis(self, id, value):
         """
         Parameters:
          - id
          - value
 
         """
-        self.send_analog(id, value)
+        self.send_axis(id, value)
 
-    def send_analog(self, id, value):
-        self._oprot.writeMessageBegin('analog', TMessageType.ONEWAY, self._seqid)
-        args = analog_args()
+    def send_axis(self, id, value):
+        self._oprot.writeMessageBegin('axis', TMessageType.ONEWAY, self._seqid)
+        args = axis_args()
         args.id = id
         args.value = value
         args.write(self._oprot)
@@ -185,7 +185,7 @@ class Processor(Iface, TProcessor):
         self._handler = handler
         self._processMap = {}
         self._processMap["ping"] = Processor.process_ping
-        self._processMap["analog"] = Processor.process_analog
+        self._processMap["axis"] = Processor.process_axis
         self._processMap["button"] = Processor.process_button
         self._processMap["get_status"] = Processor.process_get_status
         self._processMap["get_logs"] = Processor.process_get_logs
@@ -234,12 +234,12 @@ class Processor(Iface, TProcessor):
         oprot.writeMessageEnd()
         oprot.trans.flush()
 
-    def process_analog(self, seqid, iprot, oprot):
-        args = analog_args()
+    def process_axis(self, seqid, iprot, oprot):
+        args = axis_args()
         args.read(iprot)
         iprot.readMessageEnd()
         try:
-            self._handler.analog(args.id, args.value)
+            self._handler.axis(args.id, args.value)
         except TTransport.TTransportException:
             raise
         except Exception:
@@ -409,7 +409,7 @@ ping_result.thrift_spec = (
 )
 
 
-class analog_args(object):
+class axis_args(object):
     """
     Attributes:
      - id
@@ -432,8 +432,8 @@ class analog_args(object):
             if ftype == TType.STOP:
                 break
             if fid == 1:
-                if ftype == TType.I16:
-                    self.id = iprot.readI16()
+                if ftype == TType.I32:
+                    self.id = iprot.readI32()
                 else:
                     iprot.skip(ftype)
             elif fid == 2:
@@ -450,10 +450,10 @@ class analog_args(object):
         if oprot._fast_encode is not None and self.thrift_spec is not None:
             oprot.trans.write(oprot._fast_encode(self, [self.__class__, self.thrift_spec]))
             return
-        oprot.writeStructBegin('analog_args')
+        oprot.writeStructBegin('axis_args')
         if self.id is not None:
-            oprot.writeFieldBegin('id', TType.I16, 1)
-            oprot.writeI16(self.id)
+            oprot.writeFieldBegin('id', TType.I32, 1)
+            oprot.writeI32(self.id)
             oprot.writeFieldEnd()
         if self.value is not None:
             oprot.writeFieldBegin('value', TType.DOUBLE, 2)
@@ -475,10 +475,10 @@ class analog_args(object):
 
     def __ne__(self, other):
         return not (self == other)
-all_structs.append(analog_args)
-analog_args.thrift_spec = (
+all_structs.append(axis_args)
+axis_args.thrift_spec = (
     None,  # 0
-    (1, TType.I16, 'id', None, None, ),  # 1
+    (1, TType.I32, 'id', None, None, ),  # 1
     (2, TType.DOUBLE, 'value', None, None, ),  # 2
 )
 
@@ -506,8 +506,8 @@ class button_args(object):
             if ftype == TType.STOP:
                 break
             if fid == 1:
-                if ftype == TType.I16:
-                    self.id = iprot.readI16()
+                if ftype == TType.I32:
+                    self.id = iprot.readI32()
                 else:
                     iprot.skip(ftype)
             elif fid == 2:
@@ -526,8 +526,8 @@ class button_args(object):
             return
         oprot.writeStructBegin('button_args')
         if self.id is not None:
-            oprot.writeFieldBegin('id', TType.I16, 1)
-            oprot.writeI16(self.id)
+            oprot.writeFieldBegin('id', TType.I32, 1)
+            oprot.writeI32(self.id)
             oprot.writeFieldEnd()
         if self.value is not None:
             oprot.writeFieldBegin('value', TType.BOOL, 2)
@@ -552,7 +552,7 @@ class button_args(object):
 all_structs.append(button_args)
 button_args.thrift_spec = (
     None,  # 0
-    (1, TType.I16, 'id', None, None, ),  # 1
+    (1, TType.I32, 'id', None, None, ),  # 1
     (2, TType.BOOL, 'value', None, None, ),  # 2
 )
 

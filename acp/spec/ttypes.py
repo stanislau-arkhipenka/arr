@@ -16,6 +16,90 @@ from thrift.transport import TTransport
 all_structs = []
 
 
+class ButtonID(object):
+    A = 0
+    B = 1
+    X = 2
+    Y = 3
+    SELECT = 4
+    START = 5
+    THUMBL = 6
+    THUMBR = 7
+    TL = 8
+    TR = 9
+    L2 = 10
+    R2 = 11
+    PAD_UP = 12
+    PAD_DOWN = 13
+    PAD_LEFT = 14
+    PAD_RIGHT = 15
+
+    _VALUES_TO_NAMES = {
+        0: "A",
+        1: "B",
+        2: "X",
+        3: "Y",
+        4: "SELECT",
+        5: "START",
+        6: "THUMBL",
+        7: "THUMBR",
+        8: "TL",
+        9: "TR",
+        10: "L2",
+        11: "R2",
+        12: "PAD_UP",
+        13: "PAD_DOWN",
+        14: "PAD_LEFT",
+        15: "PAD_RIGHT",
+    }
+
+    _NAMES_TO_VALUES = {
+        "A": 0,
+        "B": 1,
+        "X": 2,
+        "Y": 3,
+        "SELECT": 4,
+        "START": 5,
+        "THUMBL": 6,
+        "THUMBR": 7,
+        "TL": 8,
+        "TR": 9,
+        "L2": 10,
+        "R2": 11,
+        "PAD_UP": 12,
+        "PAD_DOWN": 13,
+        "PAD_LEFT": 14,
+        "PAD_RIGHT": 15,
+    }
+
+
+class AxisID(object):
+    LX = 0
+    LY = 1
+    RX = 2
+    RY = 3
+    THROTTLE_L = 4
+    THROTTLE_R = 5
+
+    _VALUES_TO_NAMES = {
+        0: "LX",
+        1: "LY",
+        2: "RX",
+        3: "RY",
+        4: "THROTTLE_L",
+        5: "THROTTLE_R",
+    }
+
+    _NAMES_TO_VALUES = {
+        "LX": 0,
+        "LY": 1,
+        "RX": 2,
+        "RY": 3,
+        "THROTTLE_L": 4,
+        "THROTTLE_R": 5,
+    }
+
+
 class ARR_status(object):
     """
     Attributes:

@@ -6,7 +6,7 @@ from adafruit_motor import servo as ada_servo
 from adafruit_pca9685 import PCA9685
 from acp.hexapod import Hexapod
 from acp.servo import Servo
-from acp.controller import XboxOneController
+from acp.controller_xbox import XboxOneController
 from acp.led import Led
 from common import set_disposition, rconf, map
 from typing import List

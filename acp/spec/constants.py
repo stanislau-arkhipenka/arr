@@ -12,3 +12,21 @@ from thrift.TRecursive import fix_spec
 
 import sys
 from .ttypes import *
+BUTTON_NAMES = {
+    0: "a",
+    1: "b",
+    10: "l2",
+    13: "pad_down",
+    14: "pad_left",
+    15: "pad_right",
+    12: "pad_up",
+    11: "r2",
+    4: "select",
+    5: "start",
+    6: "thumbl",
+    7: "thumbr",
+    8: "tl",
+    9: "tr",
+    2: "x",
+    3: "y",
+}
