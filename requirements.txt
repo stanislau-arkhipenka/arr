@@ -3,3 +3,5 @@ adafruit-circuitpython-servokit
 pygame
 click
 RPi.GPIO
+PySimpleGUI
+thrift
