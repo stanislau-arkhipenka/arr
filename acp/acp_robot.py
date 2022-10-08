@@ -7,6 +7,7 @@ from adafruit_pca9685 import PCA9685
 from acp.hexapod import Hexapod
 from acp.servo import Servo
 from acp.controller_xbox import XboxOneController
+from acp.controller_network import NetworkController
 from acp.led import Led
 from common import set_disposition, rconf, map
 from typing import List
@@ -26,16 +27,26 @@ class AcpRobot(Hexapod):
 
     PCA_FREQ = 50 # Servo control freq
 
-    def __init__(self, config_file_path: str, 
+    CONTROLLERS = {
+        "xbox": XboxOneController,
+        "network": NetworkController
+    }
+
+    def __init__(self, config_file_path: str,
+            controller: str = "xbox", 
             debug_servo: bool = False, 
-            debug_controller: bool = False,
             debug_led: bool = False):
         super().__init__(config_file_path)
         set_disposition()
+        
+        if controller in self.CONTROLLERS:
+            self.controller = self.CONTROLLERS.get(controller)()
+        elif controller is None:
+            logger.warning("No controller provided")
+        else:
+            raise ValueError("Controller %s not found. Valid options: %s", self.CONTROLLERS)
+
         self.debug_servo = debug_servo
-        self.debug_controller = debug_controller
-        if not debug_controller:
-            self.controller = XboxOneController()
         if not debug_servo:
             self._init_servo()
         else:
