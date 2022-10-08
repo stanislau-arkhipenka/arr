@@ -223,22 +223,25 @@ if __name__ == "__main__":
 
     input_ip_addr = sg.Input('192.168.0.1')
     button_connect = sg.Button("Connect")
-    text = sg.Text("HI")
+    text = sg.Text("HI", key="text1")
     layout = [
         [input_ip_addr, button_connect], 
-        []
+        [text]
     ]
 
     # Create the window
-    window = sg.Window("Demo", layout)
+    window = sg.Window("Demo", layout, finalize=True)
 
     while True:
-        time.sleep(0.1)
-        text.update(c.axis_states)
+        #event, values = window.read()
 
-        event, values = window.read()
+        time.sleep(0.1)
+        window['text1'].update(str(c.axis_states))
+        window.refresh()
+        print(c.axis_states)
+        #event, values = window.read()
         # End program if user closes window or
         # presses the OK button
-        if event == "OK" or event == sg.WIN_CLOSED:
-            break
-    window.close()
+        #if event == "OK" or event == sg.WIN_CLOSED:
+        #    break
+    #window.close()
