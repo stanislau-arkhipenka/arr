@@ -83,6 +83,8 @@ class AxisID(object):
     RY = 3
     THROTTLE_L = 4
     THROTTLE_R = 5
+    PAD_X = 6
+    PAD_Y = 7
 
     _VALUES_TO_NAMES = {
         0: "LX",
@@ -91,6 +93,8 @@ class AxisID(object):
         3: "RY",
         4: "THROTTLE_L",
         5: "THROTTLE_R",
+        6: "PAD_X",
+        7: "PAD_Y",
     }
 
     _NAMES_TO_VALUES = {
@@ -100,6 +104,8 @@ class AxisID(object):
         "RY": 3,
         "THROTTLE_L": 4,
         "THROTTLE_R": 5,
+        "PAD_X": 6,
+        "PAD_Y": 7,
     }
 
 
