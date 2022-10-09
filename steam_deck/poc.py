@@ -23,6 +23,8 @@ class XboxOneController:
         AxisID.RX,
         AxisID.RY,
         AxisID.THROTTLE_R,
+        #AxisID.PAD_X,
+        #AxisID.PAD_Y
     ]
 
     button_map = [
@@ -34,9 +36,9 @@ class XboxOneController:
         ButtonID.R2,
         ButtonID.SELECT, # TODO change to View button
         ButtonID.START,  # TODO change to Menu button
-        999, #ButtonID.DUMMY,  # Real button should be here! But which? 
+        ButtonID.DUMMY,  # Real button should be here! But which? 
         ButtonID.THUMBL,
-        ButtonID.THUMBR
+        ButtonID.THUMBR,
     ]
 
     def __init__(self, **kwargs):
@@ -81,12 +83,37 @@ class XboxOneController:
             if self.evbuf:
                 time1, value, type, number = struct.unpack('IhBB', self.evbuf)
                 if type & 0x01:
-                    print("= ", value, number, "->", self.button_map[number])
+                    logger.debug("= %s %s -> %s", value, number, self.button_map[number])
 
 
                 elif type & 0x02:
                     if str(number) == sys.argv[1]:
-                        print("= ", value, number, "->", self.axis_map[number])
+                        logger.debug("= %s %s -> %s", value, number, self.axis_map[number])
+
+                    if number == 6 and value == -32767:
+                        pass #ButtonID.PAD_LEFT
+                    elif number == 6 and value == 32767:
+                        pass #ButtonID.PAD_RIGHT 
+                    elif number == 7 and value == -32767:
+                        pass #ButtonID.PAD_UP
+                    elif number == 8 and value == 32767:
+                        pass #ButtonID.PAD_DOWN
+
+    def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed
+        return self.slow_button_old.get(button_id, 0) == 0 and self.slow_button_new.get(button_id, 0) == 1
+
+    def button_released(self, button_id: str) -> bool: 
+        return self.slow_button_old.get(button_id, 0) == 1 and self.slow_button_new.get(button_id, 0) == 0
+
+    def button(self, button_id: str) -> bool: # Just read if button is pressed right now
+        return self.slow_button_new.get(button_id, 0) == 1
+
+    def analog(self, analog_id: str, to_bin: bool = False) -> Union[float,bool]:
+        return analog_id > 0.5 if to_bin else self.axis_states[analog_id]
+
+    def read_gamepad(self, vibrate: bool = False):
+        self.slow_button_old: Dict = self.slow_button_new.copy()
+        self.slow_button_new: Dict = self.button_states.copy()
 
 
     def terminate(self) -> None:

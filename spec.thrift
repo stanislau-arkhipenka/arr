@@ -27,6 +27,8 @@ enum AxisID {
     RY,
     THROTTLE_L,
     THROTTLE_R,
+    PAD_X,
+    PAD_Y
 }
 
 const map<ButtonID,string> BUTTON_NAMES = {
