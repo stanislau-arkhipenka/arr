@@ -17,6 +17,7 @@ enum ButtonID {
     PAD_DOWN,
     PAD_LEFT,
     PAD_RIGHT,
+    DUMMY = 999,
 }
 
 enum AxisID {
