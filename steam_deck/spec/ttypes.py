@@ -33,6 +33,7 @@ class ButtonID(object):
     PAD_DOWN = 13
     PAD_LEFT = 14
     PAD_RIGHT = 15
+    DUMMY = 999
 
     _VALUES_TO_NAMES = {
         0: "A",
@@ -51,6 +52,7 @@ class ButtonID(object):
         13: "PAD_DOWN",
         14: "PAD_LEFT",
         15: "PAD_RIGHT",
+        999: "DUMMY",
     }
 
     _NAMES_TO_VALUES = {
@@ -70,6 +72,7 @@ class ButtonID(object):
         "PAD_DOWN": 13,
         "PAD_LEFT": 14,
         "PAD_RIGHT": 15,
+        "DUMMY": 999,
     }
 
 
