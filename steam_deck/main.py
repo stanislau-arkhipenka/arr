@@ -1,6 +1,4 @@
 import logging
-
-from controller import SteamDeckController
 from ui import SteamDeckUI
 
 
@@ -14,3 +12,4 @@ if __name__ == "__main__":
     )
 
     s_ui = SteamDeckUI()
+    s_ui.run()
