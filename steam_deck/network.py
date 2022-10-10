@@ -7,14 +7,14 @@ else:
 from thrift.transport import TTransport, TSocket, TSSLSocket, THttpClient
 from thrift.protocol.TBinaryProtocol import TBinaryProtocol
 
-from spec import ARR_proto
+from spec.ARR_proto import Client
 from spec.ttypes import *
 
-def connect():
+def connect(host: str, port: int):
     socket = TSocket.TSocket(host, port)
     transport = TTransport.TBufferedTransport(socket)
     protocol = TBinaryProtocol(transport)
-    client = ARR_proto.Client(protocol)
+    client = Client(protocol)
     transport.open()
 
     return client

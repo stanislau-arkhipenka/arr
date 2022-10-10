@@ -21,6 +21,7 @@ class _NetworkController:
         self._axises_status = axises_status
 
     def ping(self) -> bool:
+        logger.debug("ping")
         return True
 
     def axis(self, id, value):
