@@ -4,7 +4,7 @@ import time
 import PySimpleGUI as sg
 from controller import SteamDeckController
 from network import connect, Client
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -13,31 +13,63 @@ class SteamDeckUI:
     def __init__(self):
         self.connected = False
         self.network_client: Client = None
-        self._connect_layout = self.get_screen_connect()
-        self._operate_layout = []
+        self._connect_layout = self.get_connect_layout()
+        self._op_layout = self.get_op_layout()
 
-        self.window = sg.Window("Demo", self._connect_layout, finalize=True)
         self.ui_state: Dict[str, Any] = {}
 
-
+        self.init_connect_window()
         self.event_routes = {
-            "_button_connect": self._button_connect
+            "_button_connect": self._button_connect,
+            "_button_disconnect": self._button_disconnect,
+            "_button_ping": self._button_ping
         }
 
+        self._multiline_log = None
 
-    def get_screen_connect(self):
-        self._connect_layout = [
+
+    def init_connect_window(self):
+        self._connect_layout = self.get_connect_layout()
+        self.window = sg.Window("Connect", self._connect_layout, finalize=True)
+    
+    def init_op_window(self):
+        self._op_layout = self.get_op_layout()
+        self.window = sg.Window("Operational Panel", self._op_layout, finalize=True)
+
+    def get_connect_layout(self) -> List[List[Any]]:
+        return [
             [
-                sg.Input('hexapod', key="_input_ip_addr"),
+                sg.Input('localhost', key="_input_ip_addr"),
                 sg.Input('9090', key="_input_port"),
                 sg.Button("Connect", key="_button_connect"),
             ],
         ]
-        
-        return self._connect_layout
 
-    def screen_operate(self):
-        pass
+    def get_op_layout(self) -> List[List[Any]]:
+        self._multiline_log = sg.Multiline('', size=(50,25))
+        return [
+            [
+                sg.Text('M: N/A'),
+                sg.Text('SM: N/A'),
+                sg.Text('Speed: N/A'),
+                sg.Text('L1: N/A'),
+                sg.Text('L2: N/A'),
+                sg.Text('Battery: N/A'),
+            ],
+            [
+                # TODO insert image here
+                self._multiline_log
+            ],
+            [
+                sg.Text("Connection: Stable"),
+                sg.Button("Ping", key="_button_ping"),
+                sg.Button("Video: OFF"),
+                sg.Button("Logs: OFF"),
+                sg.Button("Disconnect", key="_button_disconnect")
+
+            ]
+
+        ]
 
 
     def event_dispatcher(self, event: str, values: Dict[str,Any]):
@@ -56,10 +88,24 @@ class SteamDeckUI:
             self.network_client = connect(host, port)
             self.connected = True
             logger.info("Connected to %s:%s", host, port)
+            self.window.close()
+            self.init_op_window()
         else:
-            logger.info("ping!")
-            self.network_client.ping()
+            logger.warning("Already connected!")
 
+    def _button_disconnect(self):
+        if self.connected:
+            # TODO do disconnect logic here! Close Socket/etc
+            self.window.close()
+            self.init_connect_window()
+            self.connected = False
+            logger.info("Disconnected")
+        else:
+            logger.warning("Already disconnected!")
+
+    def _button_ping(self):
+        if self.connected:
+            self.network_client.ping()
 
     def run(self):
         while True:
