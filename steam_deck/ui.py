@@ -1,10 +1,10 @@
-# hello_psg.py
 import logging
 import time
 import PySimpleGUI as sg
 from controller import SteamDeckController
 from network import connect, Client
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+import queue
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class SteamDeckUI:
         }
 
         self._multiline_log = None
+        self.controller: Optional[SteamDeckController] = None
 
 
     def init_connect_window(self):
@@ -46,7 +47,7 @@ class SteamDeckUI:
         ]
 
     def get_op_layout(self) -> List[List[Any]]:
-        self._multiline_log = sg.Multiline('', size=(50,25))
+        self._multiline_log = sg.Multiline('', size=(50,25), key="_multiline_log")
         return [
             [
                 sg.Text('M: N/A'),
@@ -66,9 +67,7 @@ class SteamDeckUI:
                 sg.Button("Video: OFF"),
                 sg.Button("Logs: OFF"),
                 sg.Button("Disconnect", key="_button_disconnect")
-
             ]
-
         ]
 
 
@@ -77,8 +76,6 @@ class SteamDeckUI:
         self.ui_state = values.copy()
         if event in self.event_routes:
             self.event_routes[event]()
-
-
 
 
     def _button_connect(self):
@@ -90,6 +87,7 @@ class SteamDeckUI:
             logger.info("Connected to %s:%s", host, port)
             self.window.close()
             self.init_op_window()
+            self.controller = SteamDeckController(self.network_client)
         else:
             logger.warning("Already connected!")
 
@@ -107,17 +105,26 @@ class SteamDeckUI:
         if self.connected:
             self.network_client.ping()
 
+    def update_op_values(self):
+        try:
+            while True:
+                record = self.controller.log_queue.get(block=False)
+                self.window['_multiline_log'].update(record+"\n", append=True)
+                print("AAAA")
+        except queue.Empty:
+            pass
+            
+
+
     def run(self):
         while True:
             event, values = self.window.read()
             self.event_dispatcher(event, values)
-            
+            if self.connected:
+                self.update_op_values()
             self.window.refresh()
             time.sleep(0.05)
 
-
-    def update_op_values(self, values):
-        pass
 
     def refresh(self):
         self.window.refresh()
