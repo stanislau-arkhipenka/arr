@@ -81,13 +81,13 @@ class SteamDeckController:
                         logger.debug("= %s %s -> %s", value, number, self.axis_map[number])
 
                     if number == 6 and value == -32767:
-                        pass #ButtonID.PAD_LEFT
+                        pass # TODO ButtonID.PAD_LEFT
                     elif number == 6 and value == 32767:
-                        pass #ButtonID.PAD_RIGHT 
+                        pass # TODO ButtonID.PAD_RIGHT 
                     elif number == 7 and value == -32767:
-                        pass #ButtonID.PAD_UP
+                        pass # TODO ButtonID.PAD_UP
                     elif number == 8 and value == 32767:
-                        pass #ButtonID.PAD_DOWN
+                        pass # TODO ButtonID.PAD_DOWN
 
     def terminate(self) -> None:
         self._terminate_monitor = True
