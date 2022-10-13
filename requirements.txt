@@ -5,3 +5,4 @@ click
 RPi.GPIO
 PySimpleGUI
 thrift
+busio
