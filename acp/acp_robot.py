@@ -1,3 +1,4 @@
+import os
 import logging
 import sys
 import signal
@@ -146,8 +147,8 @@ class AcpRobot(Hexapod):
                     servo.angle = None
                 self.pca1.deinit()
                 self.pca2.deinit()
-            self.controller.terminate()
-            sys.exit(0)
+            # Yeah... I know, but thrift thread doesn't have stop method
+            os.kill(os.getpid(), 9)
 
         super().loop()
 
