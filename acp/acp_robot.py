@@ -1,22 +1,14 @@
 import logging
 import sys
 import signal
-import busio
-from adafruit_motor import servo as ada_servo
-from adafruit_pca9685 import PCA9685
 from acp.hexapod import Hexapod
 from acp.servo import Servo
 from acp.controller_xbox import XboxOneController
 from acp.controller_network import NetworkController
-from acp.led import Led
 from common import set_disposition, rconf, map
 from typing import List
 from dummy import DummyServo, DummyLed
 
-try:
-    import board
-except NotImplementedError:
-    board = object()        
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +37,21 @@ class AcpRobot(Hexapod):
             logger.warning("No controller provided")
         else:
             raise ValueError("Controller %s not found. Valid options: %s", self.CONTROLLERS)
-
         self.debug_servo = debug_servo
         if not debug_servo:
+            import busio
+            from adafruit_motor import servo as ada_servo
+            from adafruit_pca9685 import PCA9685
+            try:
+                import board
+            except NotImplementedError:
+                board = object()     
             self._init_servo()
         else:
             self.head_tilt = DummyServo()
             self.head_rotate = DummyServo()
         if not debug_led:
+            from acp.led import Led
             self.led1 = Led(17)
             self.led2 = Led(18)
         else:
