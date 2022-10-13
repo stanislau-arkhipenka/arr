@@ -10,6 +10,7 @@ from thrift.server import TServer
 from spec.ttypes import AxisID, ButtonID
 
 from controller_base import ControllerBase
+from custom_logger import tmp_log_data
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,12 @@ class _NetworkController:
     def button(self, id, value):
         button_name = ButtonID._VALUES_TO_NAMES[id].lower()
         self._button_status[button_name] = int(value)
+
+    def get_logs(self, offset: int):
+        global tmp_log_data
+        data = tmp_log_data
+        tmp_log_data = []
+        return data
 
 class NetworkController(ControllerBase):
     def __init__(self) -> None:

@@ -1,6 +1,7 @@
 from email.policy import default
 import click
 import logging
+from custom_logger import ListLogHandler
 from acp.acp_robot import AcpRobot
 
 @click.command()
@@ -14,10 +15,12 @@ def main(config_file_path, controller=None, debug_servo=False, debug_led=False):
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="[%(levelname)s][%(name)s] %(message)s",
         handlers=[
         logging.StreamHandler()
         ]
     )
+    logger = logging.getLogger(__name__)
+    logger.addHandler(ListLogHandler())
     main()
