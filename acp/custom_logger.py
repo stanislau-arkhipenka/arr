@@ -8,6 +8,6 @@ if 'tmp_log_data' not in globals():
 class ListLogHandler(logging.StreamHandler):
 
     def emit(self, record):
-            global tmp_log_data
-            msg = self.format(record)
-            tmp_log_data.append(msg)
+        global tmp_log_data
+        msg = self.format(record)
+        tmp_log_data.append(msg)
