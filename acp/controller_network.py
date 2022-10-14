@@ -1,7 +1,8 @@
+import queue
 import logging
 import time
 import spec.ARR_proto as ARR_proto
-
+from logging.handlers import QueueHandler
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
@@ -10,7 +11,6 @@ from thrift.server import TServer
 from spec.ttypes import AxisID, ButtonID
 
 from controller_base import ControllerBase
-from custom_logger import tmp_log_data
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,13 @@ class _NetworkController:
     def __init__(self, button_status, axises_status):
         self._button_status = button_status
         self._axises_status = axises_status
+        self.log_queue = queue.Queue()
+        self.queue_handler = QueueHandler(self.log_queue)
+        root_logger = logging.getLogger()
+        root_logger.addHandler(self.queue_handler)
 
     def ping(self) -> bool:
-        logger.debug("ping")
+        logger.info("ping")
         return True
 
     def axis(self, id, value):
@@ -34,10 +38,12 @@ class _NetworkController:
         self._button_status[button_name] = int(value)
 
     def get_logs(self, offset: int):
-        global tmp_log_data
-        data = tmp_log_data
-        tmp_log_data = []
-        return data
+        out: List[str] = []
+        
+        while not self.log_queue.empty():
+            msg = self.log_queue.get(False).getMessage()
+            out.append(msg)
+        return out
 
 class NetworkController(ControllerBase):
     def __init__(self) -> None:
