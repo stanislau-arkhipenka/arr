@@ -109,6 +109,33 @@ class AxisID(object):
     }
 
 
+class Mode(object):
+    IDLE = 0
+    WALK = 1
+    CXYZ = 2
+    CYPR = 3
+    OLEG = 4
+    CALI = 99
+
+    _VALUES_TO_NAMES = {
+        0: "IDLE",
+        1: "WALK",
+        2: "CXYZ",
+        3: "CYPR",
+        4: "OLEG",
+        99: "CALI",
+    }
+
+    _NAMES_TO_VALUES = {
+        "IDLE": 0,
+        "WALK": 1,
+        "CXYZ": 2,
+        "CYPR": 3,
+        "OLEG": 4,
+        "CALI": 99,
+    }
+
+
 class ARR_status(object):
     """
     Attributes:
