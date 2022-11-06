@@ -4,6 +4,7 @@ import PySimpleGUI as sg
 from controller import SteamDeckController
 from network import connect, Client
 from typing import Any, Dict, List, Optional
+from spec.ttypes import ARR_status, Mode
 import queue
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,14 @@ class SteamDeckUI:
         self._op_layout = self.get_op_layout()
 
         self.ui_state: Dict[str, Any] = {}
+        self.robot_state = ARR_status(
+            mode = 0,
+            sub_mode = 0,
+            speed = 0,
+            light_1 = False,
+            light_2 = False,
+            battery = 0,
+        )
 
         self.init_connect_window()
         self.event_routes = {
@@ -50,12 +59,12 @@ class SteamDeckUI:
         self._multiline_log = sg.Multiline('', size=(50,25), key="_multiline_log", autoscroll=True)
         return [
             [
-                sg.Text('M: N/A'),
-                sg.Text('SM: N/A'),
-                sg.Text('Speed: N/A'),
-                sg.Text('L1: N/A'),
-                sg.Text('L2: N/A'),
-                sg.Text('Battery: N/A'),
+                sg.Text('M: N/A', key="_text_mode"),
+                sg.Text('SM: N/A', key="_text_sub_mode"),
+                sg.Text('Speed: N/A', key="_text_speed"),
+                sg.Text('L1: N/A', key="_text_light1"),
+                sg.Text('L2: N/A', key="_text_light2"),
+                sg.Text('Battery: N/A', key="_text_battery"),
             ],
             [
                 # TODO insert image here
@@ -109,10 +118,10 @@ class SteamDeckUI:
         while not self.controller.log_queue.empty():
             record = self.controller.log_queue.get()
             self.window['_multiline_log'].update(record+"\n", append=True)
+        self.robot_state = self.network_client.get_status()
+        self.window["_text_mode"].update(Mode._VALUES_TO_NAMES[self.robot_state.mode])
 
             
-
-
     def run(self):
         while True:
             event, values = self.window.read(timeout=100)

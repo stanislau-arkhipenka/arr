@@ -40,6 +40,13 @@ enum Mode {
     CALI = 99,
 }
 
+enum Giat {
+    TRIP,
+    WAVE,
+    RIPP,
+    TATR,
+}
+
 const map<ButtonID,string> BUTTON_NAMES = {
     ButtonID.A: 'a',
     ButtonID.B: 'b',
