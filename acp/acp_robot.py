@@ -68,27 +68,6 @@ class AcpRobot(Hexapod):
         self.pca1.frequency = self.PCA_FREQ
         self.pca2.frequency = self.PCA_FREQ
 
-
-
-        # self.coxa1_servo  = Servo(ada_servo.Servo(self.pca1.channels[6]))    
-        # self.femur1_servo = Servo(ada_servo.Servo(self.pca1.channels[7]), reverse=True)
-        # self.tibia1_servo = Servo(ada_servo.Servo(self.pca1.channels[8]), reverse=True)
-        # self.coxa2_servo  = Servo(ada_servo.Servo(self.pca1.channels[3]))
-        # self.femur2_servo = Servo(ada_servo.Servo(self.pca1.channels[4]), reverse=True)
-        # self.tibia2_servo = Servo(ada_servo.Servo(self.pca1.channels[5]), reverse=True)
-        # self.coxa3_servo  = Servo(ada_servo.Servo(self.pca1.channels[0]))
-        # self.femur3_servo = Servo(ada_servo.Servo(self.pca1.channels[1]), reverse=True)
-        # self.tibia3_servo = Servo(ada_servo.Servo(self.pca1.channels[2]), reverse=True)
-        # self.coxa4_servo  = Servo(ada_servo.Servo(self.pca2.channels[6]))
-        # self.femur4_servo = Servo(ada_servo.Servo(self.pca2.channels[7]))
-        # self.tibia4_servo = Servo(ada_servo.Servo(self.pca2.channels[8]))
-        # self.coxa5_servo  = Servo(ada_servo.Servo(self.pca2.channels[3]))
-        # self.femur5_servo = Servo(ada_servo.Servo(self.pca2.channels[4]))
-        # self.tibia5_servo = Servo(ada_servo.Servo(self.pca2.channels[5]))
-        # self.coxa6_servo  = Servo(ada_servo.Servo(self.pca2.channels[0]))
-        # self.femur6_servo = Servo(ada_servo.Servo(self.pca2.channels[1]))
-        # self.tibia6_servo = Servo(ada_servo.Servo(self.pca2.channels[2]))
-
         self.coxa1_servo  = Servo(ada_servo.Servo(self.pca2.channels[6]))
         self.femur1_servo = Servo(ada_servo.Servo(self.pca2.channels[7]))
         self.tibia1_servo = Servo(ada_servo.Servo(self.pca2.channels[8]))
