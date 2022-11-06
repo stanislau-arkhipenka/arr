@@ -136,6 +136,27 @@ class Mode(object):
     }
 
 
+class Giat(object):
+    TRIP = 0
+    WAVE = 1
+    RIPP = 2
+    TATR = 3
+
+    _VALUES_TO_NAMES = {
+        0: "TRIP",
+        1: "WAVE",
+        2: "RIPP",
+        3: "TATR",
+    }
+
+    _NAMES_TO_VALUES = {
+        "TRIP": 0,
+        "WAVE": 1,
+        "RIPP": 2,
+        "TATR": 3,
+    }
+
+
 class ARR_status(object):
     """
     Attributes:
