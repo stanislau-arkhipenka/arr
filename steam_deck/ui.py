@@ -47,7 +47,7 @@ class SteamDeckUI:
         ]
 
     def get_op_layout(self) -> List[List[Any]]:
-        self._multiline_log = sg.Multiline('', size=(50,25), key="_multiline_log")
+        self._multiline_log = sg.Multiline('', size=(50,25), key="_multiline_log", autoscroll=True)
         return [
             [
                 sg.Text('M: N/A'),
@@ -71,9 +71,9 @@ class SteamDeckUI:
         ]
 
 
-    def event_dispatcher(self, event: str, values: Dict[str,Any]):
-        logger.debug("%s -- %s", event, values)
-        self.ui_state = values.copy()
+    def event_dispatcher(self, event: str, values: Optional[Dict[str,Any]]):
+        if values is not None:
+            self.ui_state = values.copy()
         if event in self.event_routes:
             self.event_routes[event]()
 
@@ -106,19 +106,16 @@ class SteamDeckUI:
             self.network_client.ping()
 
     def update_op_values(self):
-        try:
-            while True:
-                record = self.controller.log_queue.get(block=False)
-                self.window['_multiline_log'].update(record+"\n", append=True)
-                print("AAAA")
-        except queue.Empty:
-            pass
+        while not self.controller.log_queue.empty():
+            record = self.controller.log_queue.get()
+            self.window['_multiline_log'].update(record+"\n", append=True)
+
             
 
 
     def run(self):
         while True:
-            event, values = self.window.read()
+            event, values = self.window.read(timeout=100)
             self.event_dispatcher(event, values)
             if self.connected:
                 self.update_op_values()

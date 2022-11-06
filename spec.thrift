@@ -31,6 +31,15 @@ enum AxisID {
     PAD_Y
 }
 
+enum Mode {
+    IDLE,
+    WALK,
+    CXYZ,
+    CYPR,
+    OLEG,
+    CALI = 99,
+}
+
 const map<ButtonID,string> BUTTON_NAMES = {
     ButtonID.A: 'a',
     ButtonID.B: 'b',
