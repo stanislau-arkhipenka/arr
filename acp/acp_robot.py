@@ -9,6 +9,8 @@ from acp.controller_network import NetworkController
 from common import set_disposition, rconf, map
 from typing import List
 from dummy import DummyServo, DummyLed
+from state import current_state
+from spec.ttypes import Mode
 
 
 logger = logging.getLogger(__name__)
@@ -130,6 +132,18 @@ class AcpRobot(Hexapod):
             os.kill(os.getpid(), 9)
 
         super().loop()
+
+
+        current_state.mode = self.mode
+        if current_state.mode == Mode.WALK:
+            current_state.sub_mode = self.gait
+        else:
+            current_state.mode == 0
+        current_state.speed = self.gait_speed
+        current_state.light_1 = self.led1.state
+        current_state.light_2 = self.led2.state
+        current_state.battery = 100
+
 
         if self.mode == self.MODE_WALK:
             self.control_head()

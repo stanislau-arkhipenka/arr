@@ -9,6 +9,7 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 from threading import Lock
 from spec.ttypes import AxisID, ButtonID, ARR_status
+from state import current_state
 
 from controller_base import ControllerBase
 
@@ -59,19 +60,13 @@ class _NetworkController:
     
     @_ensure_single
     def get_status(self):
-        return ARR_status(
-            mode = 0,
-            sub_mode = 0,
-            speed = 0,
-            light_1 = False,
-            light_2 = False,
-            battery = 100;
-        )
+        return current_state
 
 
 class NetworkController(ControllerBase):
     def __init__(self) -> None:
         super().__init__()
+        
         
 
     def _monitor_dev(self, vibrate: bool = False) -> None:
