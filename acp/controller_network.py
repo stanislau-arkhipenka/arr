@@ -7,13 +7,21 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
-
-from spec.ttypes import AxisID, ButtonID
+from threading import Lock
+from spec.ttypes import AxisID, ButtonID, ARR_status
 
 from controller_base import ControllerBase
 
 logger = logging.getLogger(__name__)
+lock = Lock()
 
+def _ensure_single(f):
+    def wrapper(*args, **kwargs):
+        lock.acquire()
+        out = f(*args, **kwargs)
+        lock.release()
+        return out
+    return wrapper
 
 class _NetworkController:
 
@@ -25,18 +33,22 @@ class _NetworkController:
         root_logger = logging.getLogger()
         root_logger.addHandler(self.queue_handler)
 
+    @_ensure_single
     def ping(self) -> bool:
         logger.info("ping")
         return True
 
+    @_ensure_single
     def axis(self, id, value):
         axis_name = AxisID._VALUES_TO_NAMES[id].lower() # TODO remove lower() after migration to thrift
         self._axises_status[axis_name] = int(value) # TODO remove lower() after migration to thrift
 
+    @_ensure_single
     def button(self, id, value):
         button_name = ButtonID._VALUES_TO_NAMES[id].lower()
         self._button_status[button_name] = int(value)
-
+    
+    @_ensure_single
     def get_logs(self, offset: int):
         out: List[str] = []
         
@@ -44,6 +56,18 @@ class _NetworkController:
             msg = self.log_queue.get(False).getMessage()
             out.append(msg)
         return out
+    
+    @_ensure_single
+    def get_status(self):
+        return ARR_status(
+            mode = 0,
+            sub_mode = 0,
+            speed = 0,
+            light_1 = False,
+            light_2 = False,
+            battery = 100;
+        )
+
 
 class NetworkController(ControllerBase):
     def __init__(self) -> None:
