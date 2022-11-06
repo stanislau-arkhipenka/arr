@@ -4,7 +4,7 @@ import PySimpleGUI as sg
 from controller import SteamDeckController
 from network import connect, Client
 from typing import Any, Dict, List, Optional
-from spec.ttypes import ARR_status, Mode
+from spec.ttypes import ARR_status, Mode, Giat
 import queue
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class SteamDeckUI:
                 self._multiline_log
             ],
             [
-                sg.Text("Connection: Stable"),
+                sg.Text("Connection quality: TBD"),
                 sg.Button("Ping", key="_button_ping"),
                 sg.Button("Video: OFF"),
                 sg.Button("Logs: OFF"),
@@ -119,7 +119,15 @@ class SteamDeckUI:
             record = self.controller.log_queue.get()
             self.window['_multiline_log'].update(record+"\n", append=True)
         self.robot_state = self.network_client.get_status()
-        self.window["_text_mode"].update(Mode._VALUES_TO_NAMES[self.robot_state.mode])
+        self.window["_text_mode"].update("M: " + Mode._VALUES_TO_NAMES[self.robot_state.mode])
+        if self.robot_state.mode == Mode.WALK:
+            self.window["_text_sub_mode"].update("SM: "+Giat._VALUES_TO_NAMES[self.robot_state.sub_mode])
+        else:
+            self.window["_text_sub_mode"].update("SM: NA")
+        self.window["_text_speed"].update("speed: SLOW" if self.robot_state.speed == 1 else "speed: FAST")
+        self.window["_text_light1"].update("L1: OFF" if self.robot_state.light_1 else "L1: ON")
+        self.window["_text_light2"].update("L2: OFF" if self.robot_state.light_2 else "L2: ON")
+        self.window["_text_battery"].update(f"Battery: {self.robot_state.battery}")
 
             
     def run(self):

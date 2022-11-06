@@ -14,7 +14,7 @@ def main(config_file_path, controller=None, debug_servo=False, debug_led=False):
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="[%(levelname)s][%(name)s] %(message)s",
         handlers=[
         logging.StreamHandler()
