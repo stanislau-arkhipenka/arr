@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class SteamDeckUI:
 
     FONT = ("Arial", 22)
+    IMG_SIZE = (1280, 670) # horizontal / vertical
 
     def __init__(self):
         self.connected = False
@@ -74,8 +75,8 @@ class SteamDeckUI:
                 sg.Text('Battery: N/A', key="_text_battery"),
             ],
             [
-                sg.Image(key="_image_stream", visible =(not self.logs_view)),
-                sg.Multiline('', size=(64,18), key="_multiline_log", autoscroll=True, visible=self.logs_view)
+                sg.Image(key="_image_stream", visible =(not self.logs_view), size=self.IMG_SIZE),
+                sg.Multiline('', size=(64,19), key="_multiline_log", autoscroll=True, visible=self.logs_view)
             ],
             [
                 sg.Text("Connection quality: TBD"),
@@ -158,7 +159,7 @@ class SteamDeckUI:
                 record = self.controller.log_queue.get()
                 self.window['_multiline_log'].update(record+"\n", append=True)
         else:
-            self.window['_image_stream'].update(data=self.video_stream.get_frame())
+            self.window['_image_stream'].update(data=self.video_stream.get_frame(), size=self.IMG_SIZE)
 
         robot_state = self.network_client.get_status()
         self.window["_text_mode"].update("M: " + Mode._VALUES_TO_NAMES[robot_state.mode])
@@ -179,7 +180,8 @@ class SteamDeckUI:
             if self.connected:
                 self.update_op_values()
             self.window.refresh()
-            time.sleep(0.01)
+            if self.logs_view:
+                time.sleep(0.05)
 
 
     def refresh(self):
