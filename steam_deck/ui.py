@@ -1,8 +1,10 @@
 import logging
 import time
 import PySimpleGUI as sg
+
 from controller import SteamDeckController
-from network import connect, Client
+from video_stream import VideoStream
+from network import connect, LockedClient
 from typing import Any, Dict, List, Optional
 from spec.ttypes import ARR_status, Mode, Giat
 import queue
@@ -16,8 +18,11 @@ class SteamDeckUI:
     def __init__(self):
         self.connected = False
         self.network_client: Client = None
-        self._connect_layout = self.get_connect_layout()
-        self._op_layout = self.get_op_layout()
+        self.network_socket = None
+        self.video_stream: VideoStream = None
+        self.logs_view = True
+        self._connect_layout = None
+        self._op_layout = None
 
         self.ui_state: Dict[str, Any] = {}
         self.robot_state = ARR_status(
@@ -33,12 +38,11 @@ class SteamDeckUI:
         self.event_routes = {
             "_button_connect": self._button_connect,
             "_button_disconnect": self._button_disconnect,
-            "_button_ping": self._button_ping
+            "_button_ping": self._button_ping,
+            "_button_view": self._button_view
         }
 
-        self._multiline_log = None
         self.controller: Optional[SteamDeckController] = None
-
 
     def init_connect_window(self):
         self._connect_layout = self.get_connect_layout()
@@ -52,8 +56,13 @@ class SteamDeckUI:
     def get_connect_layout(self) -> List[List[Any]]:
         return [
             [
+                sg.Text("RC: "),
                 sg.Input('localhost', key="_input_ip_addr", size=32),
                 sg.Input('9090', key="_input_port", size=5),
+            ],
+            [
+                sg.Text("VD: "),
+                sg.Input('http://192.168.0.6:9999/stream', key='_input_video_addr', size=38)
             ],
             [
                 sg.Button("Connect", key="_button_connect"),
@@ -61,7 +70,6 @@ class SteamDeckUI:
         ]
 
     def get_op_layout(self) -> List[List[Any]]:
-        self._multiline_log = sg.Multiline('', size=(64,18), key="_multiline_log", autoscroll=True)
         return [
             [
                 sg.Text('M: N/A', key="_text_mode"),
@@ -72,14 +80,13 @@ class SteamDeckUI:
                 sg.Text('Battery: N/A', key="_text_battery"),
             ],
             [
-                # TODO insert image here
-                self._multiline_log
+                sg.Image(key="_image_stream", visible =(not self.logs_view)),
+                sg.Multiline('', size=(64,18), key="_multiline_log", autoscroll=True, visible=self.logs_view)
             ],
             [
                 sg.Text("Connection quality: TBD"),
                 sg.Button("Ping", key="_button_ping"),
-                sg.Button("Video: OFF"),
-                sg.Button("Logs: OFF"),
+                sg.Button("View: LOGS", key="_button_view"),
                 sg.Button("Disconnect", key="_button_disconnect")
             ]
         ]
@@ -96,18 +103,27 @@ class SteamDeckUI:
         if not self.connected:
             host = self.ui_state["_input_ip_addr"]
             port = int(self.ui_state["_input_port"])
-            self.network_client = connect(host, port)
+            video_addr =self.ui_state["_input_video_addr"]
+            self.network_socket, self.network_client = connect(host, port)
             self.connected = True
             logger.info("Connected to %s:%s", host, port)
             self.window.close()
             self.init_op_window()
             self.controller = SteamDeckController(self.network_client)
+            self.video_stream = VideoStream(video_addr)
+            if not self.logs_view:
+                self.video_stream.enable()
         else:
             logger.warning("Already connected!")
 
+
     def _button_disconnect(self):
         if self.connected:
-            # TODO do disconnect logic here! Close Socket/etc
+            self.controller.terminate()
+            self.controller = None
+            self.network_socket.close()
+            self.network_client = None
+            self.video_stream.disable()
             self.window.close()
             self.init_connect_window()
             self.connected = False
@@ -115,14 +131,35 @@ class SteamDeckUI:
         else:
             logger.warning("Already disconnected!")
 
+
     def _button_ping(self):
         if self.connected:
             self.network_client.ping()
 
+
+    def _button_view(self):
+        txt_map = {
+            True: "LOGS",
+            False: "VIDEO"
+        }
+        
+        self.logs_view = not self.logs_view
+        self.window["_multiline_log"].update(visible=self.logs_view)
+        self.window['_image_stream'].update(visible=not self.logs_view)
+        self.window["_button_view"].update("View: " + txt_map[self.logs_view])
+        if self.logs_view:
+            self.video_stream.disable()
+        else:
+            self.video_stream.enable()
+
     def update_op_values(self):
-        while not self.controller.log_queue.empty():
-            record = self.controller.log_queue.get()
-            self.window['_multiline_log'].update(record+"\n", append=True)
+        if self.logs_view:
+            while not self.controller.log_queue.empty():
+                record = self.controller.log_queue.get()
+                self.window['_multiline_log'].update(record+"\n", append=True)
+        else:
+            self.window['_image_stream'].update(data=self.video_stream.get_frame())
+
         self.robot_state = self.network_client.get_status()
         self.window["_text_mode"].update("M: " + Mode._VALUES_TO_NAMES[self.robot_state.mode])
         if self.robot_state.mode == Mode.WALK:
@@ -142,14 +179,16 @@ class SteamDeckUI:
             if self.connected:
                 self.update_op_values()
             self.window.refresh()
-            time.sleep(0.05)
+            time.sleep(0.01)
 
 
     def refresh(self):
         self.window.refresh()
 
+
     def read(self):
         return window.read()
+
 
     def close(self):
         window.close()

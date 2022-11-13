@@ -58,6 +58,7 @@ class SteamDeckController:
         self.monitor_dev()
         self.log_queue = queue.Queue()
 
+
     def await_controller(self) -> str:
         logger.info("Waiting for controller")
         while True:
@@ -73,8 +74,6 @@ class SteamDeckController:
     def monitor_dev(self) -> None:
         self._terminate_monitor: bool = False
         self.monitor_thread.start()
-
-
 
 
     def _monitor_dev(self, vibrate: bool = False) -> None:   # TODO vibrate not implemented
@@ -112,4 +111,5 @@ class SteamDeckController:
     def terminate(self) -> None:
         self._terminate_monitor = True
         self.monitor_thread.join()
+        self.thrift_client = None
         return

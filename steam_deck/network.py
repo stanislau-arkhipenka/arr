@@ -46,4 +46,4 @@ def connect(host: str, port: int):
     client = LockedClient(protocol)
     transport.open()
 
-    return client
+    return socket, client

@@ -6,3 +6,4 @@ RPi.GPIO
 PySimpleGUI
 thrift
 busio
+opencv-python
