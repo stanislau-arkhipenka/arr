@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 class SteamDeckUI:
 
+    FONT = ("Arial", 22)
+
     def __init__(self):
         self.connected = False
         self.network_client: Client = None
@@ -40,23 +42,26 @@ class SteamDeckUI:
 
     def init_connect_window(self):
         self._connect_layout = self.get_connect_layout()
-        self.window = sg.Window("Connect", self._connect_layout, finalize=True)
+        self.window = sg.Window("Connect", self._connect_layout, finalize=True, font=self.FONT)
     
     def init_op_window(self):
         self._op_layout = self.get_op_layout()
-        self.window = sg.Window("Operational Panel", self._op_layout, finalize=True)
+        self.window = sg.Window("Operational Panel", self._op_layout, font=self.FONT).Finalize()
+        self.window.Maximize()
 
     def get_connect_layout(self) -> List[List[Any]]:
         return [
             [
-                sg.Input('localhost', key="_input_ip_addr"),
-                sg.Input('9090', key="_input_port"),
+                sg.Input('localhost', key="_input_ip_addr", size=32),
+                sg.Input('9090', key="_input_port", size=5),
+            ],
+            [
                 sg.Button("Connect", key="_button_connect"),
             ],
         ]
 
     def get_op_layout(self) -> List[List[Any]]:
-        self._multiline_log = sg.Multiline('', size=(50,25), key="_multiline_log", autoscroll=True)
+        self._multiline_log = sg.Multiline('', size=(64,18), key="_multiline_log", autoscroll=True)
         return [
             [
                 sg.Text('M: N/A', key="_text_mode"),
