@@ -8,6 +8,7 @@ from network import connect, LockedClient
 from typing import Any, Dict, List, Optional
 from spec.ttypes import ARR_status, Mode, Giat
 import queue
+from thrift.transport.TTransport import TTransportException
 
 logger = logging.getLogger(__name__)
 
@@ -17,22 +18,14 @@ class SteamDeckUI:
 
     def __init__(self):
         self.connected = False
-        self.network_client: Client = None
+        self.network_client = None
         self.network_socket = None
-        self.video_stream: VideoStream = None
+        self.video_stream = None
         self.logs_view = True
         self._connect_layout = None
         self._op_layout = None
 
         self.ui_state: Dict[str, Any] = {}
-        self.robot_state = ARR_status(
-            mode = 0,
-            sub_mode = 0,
-            speed = 0,
-            light_1 = False,
-            light_2 = False,
-            battery = 0,
-        )
 
         self.init_connect_window()
         self.event_routes = {
@@ -41,7 +34,7 @@ class SteamDeckUI:
             "_button_ping": self._button_ping,
             "_button_view": self._button_view
         }
-
+        self.unable_connect_count = 0
         self.controller: Optional[SteamDeckController] = None
 
     def init_connect_window(self):
@@ -66,6 +59,7 @@ class SteamDeckUI:
             ],
             [
                 sg.Button("Connect", key="_button_connect"),
+                sg.Text("Unable to connect", key="_text_error", visible=False)
             ],
         ]
 
@@ -104,7 +98,13 @@ class SteamDeckUI:
             host = self.ui_state["_input_ip_addr"]
             port = int(self.ui_state["_input_port"])
             video_addr =self.ui_state["_input_video_addr"]
-            self.network_socket, self.network_client = connect(host, port)
+            try:
+                self.network_socket, self.network_client = connect(host, port)
+            except TTransportException:
+                self.unable_connect_count += 1
+                self.window["_text_error"].update(f"Unable to connect {self.unable_connect_count}", visible=True)
+                return
+            self.unable_connect_count = 0
             self.connected = True
             logger.info("Connected to %s:%s", host, port)
             self.window.close()
@@ -160,16 +160,16 @@ class SteamDeckUI:
         else:
             self.window['_image_stream'].update(data=self.video_stream.get_frame())
 
-        self.robot_state = self.network_client.get_status()
-        self.window["_text_mode"].update("M: " + Mode._VALUES_TO_NAMES[self.robot_state.mode])
-        if self.robot_state.mode == Mode.WALK:
-            self.window["_text_sub_mode"].update("SM: "+Giat._VALUES_TO_NAMES[self.robot_state.sub_mode])
+        robot_state = self.network_client.get_status()
+        self.window["_text_mode"].update("M: " + Mode._VALUES_TO_NAMES[robot_state.mode])
+        if robot_state.mode == Mode.WALK:
+            self.window["_text_sub_mode"].update("SM: "+Giat._VALUES_TO_NAMES[robot_state.sub_mode])
         else:
             self.window["_text_sub_mode"].update("SM: NA")
-        self.window["_text_speed"].update("speed: SLOW" if self.robot_state.speed == 1 else "speed: FAST")
-        self.window["_text_light1"].update("L1: OFF" if self.robot_state.light_1 else "L1: ON")
-        self.window["_text_light2"].update("L2: OFF" if self.robot_state.light_2 else "L2: ON")
-        self.window["_text_battery"].update(f"Battery: {self.robot_state.battery}")
+        self.window["_text_speed"].update("speed: SLOW" if robot_state.speed == 1 else "speed: FAST")
+        self.window["_text_light1"].update("L1: OFF" if robot_state.light_1 else "L1: ON")
+        self.window["_text_light2"].update("L2: OFF" if robot_state.light_2 else "L2: ON")
+        self.window["_text_battery"].update(f"Battery: {robot_state.battery}")
 
             
     def run(self):
