@@ -8,16 +8,19 @@ from acp.acp_robot import AcpRobot
 @click.option("--controller", type=str)
 @click.option("--debug-servo", is_flag=True, default=False)
 @click.option("--debug-led", is_flag=True, default=False)
-def main(config_file_path, controller=None, debug_servo=False, debug_led=False):
-    AcpRobot(config_file_path, controller=controller, debug_servo=debug_servo, debug_led=debug_led).run()
-
-
-if __name__ == "__main__":
+@click.option("--log-level", type=str)
+def main(config_file_path, controller=None, debug_servo=False, debug_led=False, log_level="INFO"):
+    level = logging.getLevelName(log_level)
     logging.basicConfig(
-        level=logging.INFO,
+        level=level,
         format="[%(levelname)s][%(name)s] %(message)s",
         handlers=[
         logging.StreamHandler()
         ]
     )
+    AcpRobot(config_file_path, controller=controller, debug_servo=debug_servo, debug_led=debug_led).run()
+
+
+if __name__ == "__main__":
+
     main()
