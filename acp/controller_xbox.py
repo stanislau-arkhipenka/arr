@@ -186,7 +186,7 @@ class XboxOneController:
                             self.button_states['pad_right'] = 1 if axis == 'hat0x' and tmp_int == 1 else 0
                         
                         self.axis_states[axis] = int(map(fvalue, -1.0, 1.0, 0, 255))    # AFAIK hexapod expects int between 0 and 255
-                        logger.debug("%s: %.3f" % (axis, fvalue))
+                        logger.debug("%s: %.3f -> %s" % (axis, fvalue, self.axis_states[axis]))
 
     def button_pressed(self, button_id: str) -> bool: # If button changed possition from unpressed to pressed
         return self.slow_button_old.get(button_id, 0) == 0 and self.slow_button_new.get(button_id, 0) == 1

@@ -44,6 +44,7 @@ class _NetworkController:
     def axis(self, id, value):
         axis_name = AxisID._VALUES_TO_NAMES[id].lower() # TODO remove lower() after migration to thrift
         self._axises_status[axis_name] = int(map(value, -32767, 32767, 0, 255))
+        logger.debug("%s: %.3f -> %s" % (axis_name, value, self._axises_status[axis_name]))
 
     @_ensure_single
     def button(self, id, value):

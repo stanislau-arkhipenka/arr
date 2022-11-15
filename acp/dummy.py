@@ -9,11 +9,11 @@ class DummyServo:
 
   def write(self, value: int):
     if self.value != value:
-      logger.debug(f"servo write {value}")
+      #logger.debug(f"servo write {value}")
       self.value = value
 
   def read(self):
-    logger.debug(f"servo read {self.value}")
+    #logger.debug(f"servo read {self.value}")
     return self.value
 
 
