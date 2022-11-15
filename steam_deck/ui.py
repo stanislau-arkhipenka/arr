@@ -51,12 +51,12 @@ class SteamDeckUI:
         return [
             [
                 sg.Text("RC: "),
-                sg.Input('localhost', key="_input_ip_addr", size=32),
+                sg.Input('hexapod', key="_input_ip_addr", size=32),
                 sg.Input('9090', key="_input_port", size=5),
             ],
             [
                 sg.Text("VD: "),
-                sg.Input('http://192.168.0.6:9999/stream', key='_input_video_addr', size=38)
+                sg.Input('http://hexapod:9999/stream', key='_input_video_addr', size=38)
             ],
             [
                 sg.Button("Connect", key="_button_connect"),
@@ -110,7 +110,7 @@ class SteamDeckUI:
             logger.info("Connected to %s:%s", host, port)
             self.window.close()
             self.init_op_window()
-            self.controller = SteamDeckController(self.network_client)
+            self.controller = SteamDeckController(self.network_client, collect_logs=self.logs_view)
             self.video_stream = VideoStream(video_addr)
             if not self.logs_view:
                 self.video_stream.enable()
@@ -148,6 +148,7 @@ class SteamDeckUI:
         self.window["_multiline_log"].update(visible=self.logs_view)
         self.window['_image_stream'].update(visible=not self.logs_view)
         self.window["_button_view"].update("View: " + txt_map[self.logs_view])
+        self.controller.collect_logs = self.logs_view
         if self.logs_view:
             self.video_stream.disable()
         else:
@@ -178,6 +179,7 @@ class SteamDeckUI:
             event, values = self.window.read(timeout=100)
             self.event_dispatcher(event, values)
             if self.connected:
+                self.controller.send_update()
                 self.update_op_values()
             self.window.refresh()
             if self.logs_view:
