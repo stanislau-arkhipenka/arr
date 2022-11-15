@@ -10,6 +10,7 @@ from thrift.server import TServer
 from threading import Lock
 from spec.ttypes import AxisID, ButtonID, ARR_status
 from state import current_state
+from common import map
 
 from controller_base import ControllerBase
 
@@ -42,11 +43,11 @@ class _NetworkController:
     @_ensure_single
     def axis(self, id, value):
         axis_name = AxisID._VALUES_TO_NAMES[id].lower() # TODO remove lower() after migration to thrift
-        self._axises_status[axis_name] = int(value) # TODO remove lower() after migration to thrift
+        self._axises_status[axis_name] = int(map(value, -32767, 32767, 0, 255))
 
     @_ensure_single
     def button(self, id, value):
-        button_name = ButtonID._VALUES_TO_NAMES[id].lower()
+        button_name = ButtonID._VALUES_TO_NAMES[id].lower() # TODO remove lower() after migration to thrift
         self._button_status[button_name] = int(value)
     
     @_ensure_single
