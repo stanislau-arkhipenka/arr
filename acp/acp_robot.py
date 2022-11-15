@@ -13,6 +13,29 @@ from state import current_state
 from spec.ttypes import Mode
 
 
+try:
+    import board
+    import busio
+    from adafruit_motor import servo as ada_servo
+    from adafruit_pca9685 import PCA9685
+    BOARD_IMPORT_OK=True
+except NotImplementedError as e:
+    board = object()   
+    BOARD_IMPORT_OK=False
+    servo_error = e
+except ModuleNotFoundError as e:
+    board = object()   
+    BOARD_IMPORT_OK=False
+    servo_error = e 
+
+try:
+    from acp.led import Led
+    LED_IMPORT_OK=True
+except ModuleNotFoundError as e:
+    LED_IMPORT_OK=False
+    led_error = e
+
+
 logger = logging.getLogger(__name__)
 
 class AcpRobot(Hexapod):
@@ -42,19 +65,17 @@ class AcpRobot(Hexapod):
             raise ValueError("Controller %s not found. Valid options: %s", self.CONTROLLERS)
         self.debug_servo = debug_servo
         if not debug_servo:
-            import busio
-            from adafruit_motor import servo as ada_servo
-            from adafruit_pca9685 import PCA9685
-            try:
-                import board
-            except NotImplementedError:
-                board = object()     
+            if not BOARD_IMPORT_OK:
+                logger.error("Unable to load servo/board libs. You can still use app with dummy servo, by using --debug-servo")
+                raise servo_error
             self._init_servo()
         else:
             self.head_tilt = DummyServo()
             self.head_rotate = DummyServo()
         if not debug_led:
-            from acp.led import Led
+            if not LED_IMPORT_OK:
+                logger.error("Unable to load RPi/led libs. You can still use app with dummy led, by using --debug-led")
+                raise led_error
             self.led1 = Led(17)
             self.led2 = Led(18)
         else:
