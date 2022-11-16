@@ -1,21 +1,40 @@
+import os
 import logging
 import sys
 import signal
-import busio
-from adafruit_motor import servo as ada_servo
-from adafruit_pca9685 import PCA9685
 from acp.hexapod import Hexapod
 from acp.servo import Servo
-from acp.controller import XboxOneController
-from acp.led import Led
+from acp.controller_xbox import XboxOneController
+from acp.controller_network import NetworkController
 from common import set_disposition, rconf, map
 from typing import List
 from dummy import DummyServo, DummyLed
+from state import current_state
+from spec.ttypes import Mode
+
 
 try:
     import board
-except NotImplementedError:
-    board = object()        
+    import busio
+    from adafruit_motor import servo as ada_servo
+    from adafruit_pca9685 import PCA9685
+    BOARD_IMPORT_OK=True
+except NotImplementedError as e:
+    board = object()   
+    BOARD_IMPORT_OK=False
+    servo_error = e
+except ModuleNotFoundError as e:
+    board = object()   
+    BOARD_IMPORT_OK=False
+    servo_error = e 
+
+try:
+    from acp.led import Led
+    LED_IMPORT_OK=True
+except ModuleNotFoundError as e:
+    LED_IMPORT_OK=False
+    led_error = e
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +45,37 @@ class AcpRobot(Hexapod):
 
     PCA_FREQ = 50 # Servo control freq
 
-    def __init__(self, config_file_path: str, 
+    CONTROLLERS = {
+        "xbox": XboxOneController,
+        "network": NetworkController
+    }
+
+    def __init__(self, config_file_path: str,
+            controller: str = "xbox", 
             debug_servo: bool = False, 
-            debug_controller: bool = False,
             debug_led: bool = False):
         super().__init__(config_file_path)
         set_disposition()
+        
+        if controller in self.CONTROLLERS:
+            self.controller = self.CONTROLLERS.get(controller)()
+        elif controller is None:
+            logger.warning("No controller provided")
+        else:
+            raise ValueError("Controller %s not found. Valid options: %s", self.CONTROLLERS)
         self.debug_servo = debug_servo
-        self.debug_controller = debug_controller
-        if not debug_controller:
-            self.controller = XboxOneController()
         if not debug_servo:
+            if not BOARD_IMPORT_OK:
+                logger.error("Unable to load servo/board libs. You can still use app with dummy servo, by using --debug-servo")
+                raise servo_error
             self._init_servo()
         else:
             self.head_tilt = DummyServo()
             self.head_rotate = DummyServo()
         if not debug_led:
+            if not LED_IMPORT_OK:
+                logger.error("Unable to load RPi/led libs. You can still use app with dummy led, by using --debug-led")
+                raise led_error
             self.led1 = Led(17)
             self.led2 = Led(18)
         else:
@@ -56,27 +90,6 @@ class AcpRobot(Hexapod):
         self.pca2 = PCA9685(self.i2c, address=0x40)
         self.pca1.frequency = self.PCA_FREQ
         self.pca2.frequency = self.PCA_FREQ
-
-
-
-        # self.coxa1_servo  = Servo(ada_servo.Servo(self.pca1.channels[6]))    
-        # self.femur1_servo = Servo(ada_servo.Servo(self.pca1.channels[7]), reverse=True)
-        # self.tibia1_servo = Servo(ada_servo.Servo(self.pca1.channels[8]), reverse=True)
-        # self.coxa2_servo  = Servo(ada_servo.Servo(self.pca1.channels[3]))
-        # self.femur2_servo = Servo(ada_servo.Servo(self.pca1.channels[4]), reverse=True)
-        # self.tibia2_servo = Servo(ada_servo.Servo(self.pca1.channels[5]), reverse=True)
-        # self.coxa3_servo  = Servo(ada_servo.Servo(self.pca1.channels[0]))
-        # self.femur3_servo = Servo(ada_servo.Servo(self.pca1.channels[1]), reverse=True)
-        # self.tibia3_servo = Servo(ada_servo.Servo(self.pca1.channels[2]), reverse=True)
-        # self.coxa4_servo  = Servo(ada_servo.Servo(self.pca2.channels[6]))
-        # self.femur4_servo = Servo(ada_servo.Servo(self.pca2.channels[7]))
-        # self.tibia4_servo = Servo(ada_servo.Servo(self.pca2.channels[8]))
-        # self.coxa5_servo  = Servo(ada_servo.Servo(self.pca2.channels[3]))
-        # self.femur5_servo = Servo(ada_servo.Servo(self.pca2.channels[4]))
-        # self.tibia5_servo = Servo(ada_servo.Servo(self.pca2.channels[5]))
-        # self.coxa6_servo  = Servo(ada_servo.Servo(self.pca2.channels[0]))
-        # self.femur6_servo = Servo(ada_servo.Servo(self.pca2.channels[1]))
-        # self.tibia6_servo = Servo(ada_servo.Servo(self.pca2.channels[2]))
 
         self.coxa1_servo  = Servo(ada_servo.Servo(self.pca2.channels[6]))
         self.femur1_servo = Servo(ada_servo.Servo(self.pca2.channels[7]))
@@ -136,10 +149,22 @@ class AcpRobot(Hexapod):
                     servo.angle = None
                 self.pca1.deinit()
                 self.pca2.deinit()
-            self.controller.terminate()
-            sys.exit(0)
+            # Yeah... I know, but thrift thread doesn't have stop method
+            os.kill(os.getpid(), 9)
 
         super().loop()
+
+
+        current_state.mode = self.mode
+        if current_state.mode == Mode.WALK:
+            current_state.sub_mode = self.gait
+        else:
+            current_state.mode == 0
+        current_state.speed = self.gait_speed
+        current_state.light_1 = self.led1.state
+        current_state.light_2 = self.led2.state
+        current_state.battery = 100
+
 
         if self.mode == self.MODE_WALK:
             self.control_head()

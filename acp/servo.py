@@ -8,7 +8,7 @@ class Servo:
         self.reverse = reverse
 
     def write(self, value: int) -> None:
-        logger.debug("servo write %s", value)
+        # logger.debug("servo write %s", value)
         try:
             self.channel.angle = self._rev(value)
         except OSError:
